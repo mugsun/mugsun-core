@@ -68,6 +68,12 @@
 				<artifactId>jetcache-autoconfigure</artifactId>
 				<version>${jetcache.version}</version>
 			</dependency>
+			<!-- 缓存：JetCache Redis(Lettuce) 远程二级缓存，Lettuce 自带 Redis 客户端 -->
+			<dependency>
+				<groupId>com.alicp.jetcache</groupId>
+				<artifactId>jetcache-starter-redis-lettuce</artifactId>
+				<version>${jetcache.version}</version>
+			</dependency>
 			<!-- 对象存储：x-file-storage（多云统一，默认本地） -->
 			<dependency>
 				<groupId>org.dromara.x-file-storage</groupId>
@@ -113,6 +119,12 @@
 				<groupId>cn.idev.excel</groupId>
 				<artifactId>fastexcel</artifactId>
 				<version>${fastexcel.version}</version>
+			</dependency>
+			<!-- 图形验证码：Hutool Captcha（含 hutool-core） -->
+			<dependency>
+				<groupId>cn.hutool</groupId>
+				<artifactId>hutool-captcha</artifactId>
+				<version>${hutool.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>

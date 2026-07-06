@@ -13,6 +13,8 @@ public class R<T> implements Serializable {
 	private boolean success;
 	private T data;
 	private String msg;
+	/** 数据类型标记：为 "ENCRYPT" 时表示 data 为密文（接口加解密），普通响应为 null */
+	private String dataType;
 
 	public R() {
 	}
@@ -74,5 +76,13 @@ public class R<T> implements Serializable {
 
 	public void setMsg(String msg) {
 		this.msg = msg;
+	}
+
+	public String getDataType() {
+		return dataType;
+	}
+
+	public void setDataType(String dataType) {
+		this.dataType = dataType;
 	}
 }

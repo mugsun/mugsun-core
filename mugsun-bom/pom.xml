@@ -126,6 +126,18 @@
 				<artifactId>hutool-captcha</artifactId>
 				<version>${hutool.version}</version>
 			</dependency>
+			<!-- 加解密：Hutool Crypto（SM4 字段加密） -->
+			<dependency>
+				<groupId>cn.hutool</groupId>
+				<artifactId>hutool-crypto</artifactId>
+				<version>${hutool.version}</version>
+			</dependency>
+			<!-- 国密算法支持：BouncyCastle（Hutool SM4 依赖） -->
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcprov-jdk18on</artifactId>
+				<version>${bouncycastle.version}</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 </project>

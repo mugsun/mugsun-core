@@ -35,6 +35,9 @@
 		<hutool.version>5.8.39</hutool.version>
 		<bouncycastle.version>1.82</bouncycastle.version>
 		<springdoc.version>2.8.17</springdoc.version>
+		<justauth.version>1.16.7</justauth.version>
+		<!-- fastjson2 的 v1 兼容桥接：替换 JustAuth 传递的旧 fastjson 1.x，消除供应链风险 -->
+		<fastjson2.version>2.0.61</fastjson2.version>
 	</properties>
 
 	<modules>

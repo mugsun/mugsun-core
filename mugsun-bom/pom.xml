@@ -150,6 +150,24 @@
 				<artifactId>bcprov-jdk18on</artifactId>
 				<version>${bouncycastle.version}</version>
 			</dependency>
+			<!-- 社交登录：JustAuth（30+ 平台 OAuth2 聚合，排除旧 fastjson1 改用 fastjson2 兼容桥） -->
+			<dependency>
+				<groupId>me.zhyd.oauth</groupId>
+				<artifactId>JustAuth</artifactId>
+				<version>${justauth.version}</version>
+				<exclusions>
+					<exclusion>
+						<groupId>com.alibaba</groupId>
+						<artifactId>fastjson</artifactId>
+					</exclusion>
+				</exclusions>
+			</dependency>
+			<!-- fastjson2 v1 兼容桥接：供 JustAuth 内部 com.alibaba.fastjson.* 引用，业务 JSON 仍走 Jackson -->
+			<dependency>
+				<groupId>com.alibaba</groupId>
+				<artifactId>fastjson</artifactId>
+				<version>${fastjson2.version}</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 </project>

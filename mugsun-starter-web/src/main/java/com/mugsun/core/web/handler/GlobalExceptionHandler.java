@@ -5,6 +5,7 @@ import cn.dev33.satoken.exception.NotPermissionException;
 import cn.dev33.satoken.exception.NotRoleException;
 import com.mugsun.core.tool.api.R;
 import com.mugsun.core.tool.api.ResultCode;
+import com.mugsun.core.tool.exception.ForbiddenException;
 import com.mugsun.core.tool.exception.ServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +42,12 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(NotLoginException.class)
 	public ResponseEntity<R<Void>> handleNotLogin(NotLoginException e) {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(R.fail(ResultCode.UNAUTHORIZED));
+	}
+
+	/** 访问受限（租户越权 / 套餐外功能）→ 403（携带具体提示语） */
+	@ExceptionHandler(ForbiddenException.class)
+	public ResponseEntity<R<Void>> handleForbidden(ForbiddenException e) {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(R.fail(ResultCode.FORBIDDEN, e.getMessage()));
 	}
 
 	/** 无权限/无角色 → 403 */

@@ -62,6 +62,12 @@
 				<artifactId>sa-token-spring-boot3-starter</artifactId>
 				<version>${sa-token.version}</version>
 			</dependency>
+			<!-- 会话持久化：Sa-Token Redis（Jackson JSON 序列化，复用 spring-data-redis 连接工厂） -->
+			<dependency>
+				<groupId>cn.dev33</groupId>
+				<artifactId>sa-token-redis-jackson</artifactId>
+				<version>${sa-token.version}</version>
+			</dependency>
 			<!-- 在线 API 文档：SpringDoc OpenAPI（/v3/api-docs + swagger-ui，供前端 openapi 类型生成） -->
 			<dependency>
 				<groupId>org.springdoc</groupId>

@@ -17,6 +17,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 全局异常处理：统一转为 R 响应，并对齐 HTTP 状态码
@@ -63,6 +64,12 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler({NotPermissionException.class, NotRoleException.class})
 	public ResponseEntity<R<Void>> handleNoPermission(RuntimeException e) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(R.fail(ResultCode.FORBIDDEN));
+	}
+
+	/** 资源不存在（URL 笔误/扫描器探测走静态资源链兜底）→ 404；非系统故障，不入错误日志防噪音淹没 */
+	@ExceptionHandler(NoResourceFoundException.class)
+	public ResponseEntity<R<Void>> handleNoResource(NoResourceFoundException e) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(R.fail(ResultCode.NOT_FOUND));
 	}
 
 	/** 兜底 → 500（同步发布错误日志监听，监听器内部异步落库；监听异常不污染主响应） */

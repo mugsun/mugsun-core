@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mugsun.core.web.crypto.ApiCryptoService;
 import com.mugsun.core.web.crypto.DecryptRequestAdvice;
 import com.mugsun.core.web.crypto.EncryptResponseAdvice;
+import com.mugsun.core.web.handler.ErrorLogListener;
 import com.mugsun.core.web.handler.GlobalExceptionHandler;
 import com.mugsun.core.web.jackson.SafeNumberModule;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -19,8 +21,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class MugsunWebAutoConfiguration implements WebMvcConfigurer {
 
 	@Bean
-	public GlobalExceptionHandler globalExceptionHandler() {
-		return new GlobalExceptionHandler();
+	public GlobalExceptionHandler globalExceptionHandler(ObjectProvider<ErrorLogListener> errorLogListeners) {
+		return new GlobalExceptionHandler(errorLogListeners);
 	}
 
 	@Bean

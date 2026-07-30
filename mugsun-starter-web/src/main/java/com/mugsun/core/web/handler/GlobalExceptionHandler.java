@@ -7,8 +7,10 @@ import com.mugsun.core.tool.api.R;
 import com.mugsun.core.tool.api.ResultCode;
 import com.mugsun.core.tool.exception.ForbiddenException;
 import com.mugsun.core.tool.exception.ServiceException;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -23,6 +25,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
 	private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+	/** 错误日志监听（可缺省）：兜底 500 处发布，业务侧实现落库闭环 */
+	private final ObjectProvider<ErrorLogListener> errorLogListeners;
+
+	public GlobalExceptionHandler(ObjectProvider<ErrorLogListener> errorLogListeners) {
+		this.errorLogListeners = errorLogListeners;
+	}
 
 	/** 业务异常 */
 	@ExceptionHandler(ServiceException.class)
@@ -56,10 +65,17 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(R.fail(ResultCode.FORBIDDEN));
 	}
 
-	/** 兜底 → 500 */
+	/** 兜底 → 500（同步发布错误日志监听，监听器内部异步落库；监听异常不污染主响应） */
 	@ExceptionHandler(Exception.class)
-	public ResponseEntity<R<Void>> handleException(Exception e) {
+	public ResponseEntity<R<Void>> handleException(Exception e, HttpServletRequest request) {
 		log.error("系统未捕获异常", e);
+		errorLogListeners.orderedStream().forEach(listener -> {
+			try {
+				listener.onError(request, e);
+			} catch (Exception ex) {
+				log.warn("错误日志监听器执行失败：{}", ex.getMessage());
+			}
+		});
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(R.fail(ResultCode.SERVER_ERROR));
 	}
 }

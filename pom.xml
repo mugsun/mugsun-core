@@ -27,6 +27,9 @@
 		<sa-token.version>1.44.0</sa-token.version>
 		<jetcache.version>2.7.9</jetcache.version>
 		<x-file-storage.version>2.3.0</x-file-storage.version>
+		<minio.version>8.5.17</minio.version>
+		<!-- 对齐 x-file-storage-core 2.3.0 编译期 provided 版本 -->
+		<aliyun-oss.version>3.16.1</aliyun-oss.version>
 		<sms4j.version>3.3.4</sms4j.version>
 		<warm-flow.version>1.8.8</warm-flow.version>
 		<powerjob.version>5.1.2</powerjob.version>

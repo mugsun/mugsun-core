@@ -38,16 +38,24 @@ public class DecryptRequestAdvice extends RequestBodyAdviceAdapter {
 	@Override
 	public HttpInputMessage beforeBodyRead(HttpInputMessage inputMessage, MethodParameter parameter, Type targetType, Class<? extends HttpMessageConverter<?>> converterType) throws IOException {
 		byte[] raw = inputMessage.getBody().readAllBytes();
+		JsonNode node;
 		try {
-			JsonNode node = objectMapper.readTree(new String(raw, StandardCharsets.UTF_8));
-			JsonNode enc = node.get("encryptData");
-			if (enc == null || enc.asText().isEmpty()) {
-				return rebuild(inputMessage, raw);
-			}
+			node = objectMapper.readTree(new String(raw, StandardCharsets.UTF_8));
+		} catch (Exception e) {
+			// 标注了 @ApiDecrypt 即强制加密语义：非法 JSON 直接拒绝（防明文降级绕过）
+			throw new com.mugsun.core.tool.exception.ServiceException("请求体须为加密报文");
+		}
+		JsonNode enc = node.get("encryptData");
+		if (enc == null || enc.asText().isEmpty()) {
+			throw new com.mugsun.core.tool.exception.ServiceException("缺少加密字段 encryptData");
+		}
+		try {
 			byte[] plain = apiCryptoService.decrypt(enc.asText()).getBytes(StandardCharsets.UTF_8);
 			return rebuild(inputMessage, plain);
+		} catch (com.mugsun.core.tool.exception.ServiceException e) {
+			throw e;
 		} catch (Exception e) {
-			return rebuild(inputMessage, raw);
+			throw new com.mugsun.core.tool.exception.ServiceException("加密报文解密失败");
 		}
 	}
 

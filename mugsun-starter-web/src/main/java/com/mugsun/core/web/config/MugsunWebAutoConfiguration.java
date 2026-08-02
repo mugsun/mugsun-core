@@ -21,26 +21,31 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class MugsunWebAutoConfiguration implements WebMvcConfigurer {
 
 	@Bean
+	@org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 	public GlobalExceptionHandler globalExceptionHandler(ObjectProvider<ErrorLogListener> errorLogListeners) {
 		return new GlobalExceptionHandler(errorLogListeners);
 	}
 
 	@Bean
+	@org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 	public SafeNumberModule safeNumberModule() {
 		return new SafeNumberModule();
 	}
 
 	@Bean
+	@org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 	public ApiCryptoService apiCryptoService() {
 		return new ApiCryptoService();
 	}
 
 	@Bean
+	@org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 	public DecryptRequestAdvice decryptRequestAdvice(ApiCryptoService apiCryptoService, ObjectMapper objectMapper) {
 		return new DecryptRequestAdvice(apiCryptoService, objectMapper);
 	}
 
 	@Bean
+	@org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 	public EncryptResponseAdvice encryptResponseAdvice(ApiCryptoService apiCryptoService, ObjectMapper objectMapper) {
 		return new EncryptResponseAdvice(apiCryptoService, objectMapper);
 	}

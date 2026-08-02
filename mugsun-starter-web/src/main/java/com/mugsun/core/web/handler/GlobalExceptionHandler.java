@@ -72,6 +72,22 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(R.fail(ResultCode.NOT_FOUND));
 	}
 
+	/** 客户端参数错误（类型不匹配/缺参/请求体不可读）→ 400：客户端 4xx 非服务器故障，不入错误日志 */
+	@ExceptionHandler({org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+		org.springframework.web.bind.MissingServletRequestParameterException.class,
+		org.springframework.http.converter.HttpMessageNotReadableException.class})
+	public ResponseEntity<R<Void>> handleBadRequest(Exception e) {
+		return ResponseEntity.badRequest().body(R.fail(ResultCode.FAILURE));
+	}
+
+	/** 请求方法不允许 → 405 */
+	@ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+	public ResponseEntity<R<Void>> handleMethodNotSupported(
+			org.springframework.web.HttpRequestMethodNotSupportedException e) {
+		return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+			.body(R.fail(ResultCode.FAILURE, "请求方法不允许"));
+	}
+
 	/** 兜底 → 500（同步发布错误日志监听，监听器内部异步落库；监听异常不污染主响应） */
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<R<Void>> handleException(Exception e, HttpServletRequest request) {

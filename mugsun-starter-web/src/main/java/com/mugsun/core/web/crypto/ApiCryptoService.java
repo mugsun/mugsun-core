@@ -21,15 +21,28 @@ public class ApiCryptoService {
 	private static final int BLOCK = 16;
 	private static final int IV_HEX = BLOCK * 2;
 
-	@Value("${mugsun.crypto.api-key:mugsun-api-key16}")
+	@Value("${mugsun.crypto.api-key:}")
 	private String apiKey;
+
+	/** 生产严格模式：密钥缺失即拒绝启动 */
+	@Value("${mugsun.crypto.strict-keys:false}")
+	private boolean strictKeys;
 
 	private byte[] keyBytes;
 	private final SecureRandom secureRandom = new SecureRandom();
 
 	@PostConstruct
 	public void init() {
-		keyBytes = Arrays.copyOf(apiKey.getBytes(StandardCharsets.UTF_8), BLOCK);
+		String key = apiKey;
+		if (key == null || key.isBlank()) {
+			if (strictKeys) {
+				throw new IllegalStateException("strict-keys 模式：未注入接口加密密钥（MUGSUN_API_KEY），拒绝启动");
+			}
+			org.slf4j.LoggerFactory.getLogger(getClass())
+				.error("未注入接口加密密钥，回落内置开发默认值（仅本地可用；生产必须配置 MUGSUN_API_KEY）");
+			key = "mugsun-api-key16";
+		}
+		keyBytes = Arrays.copyOf(key.trim().getBytes(StandardCharsets.UTF_8), BLOCK);
 	}
 
 	/** 明文 → Hex(IV) ‖ Hex(密文)；每次 CSPRNG 随机 IV，密文非确定性 */

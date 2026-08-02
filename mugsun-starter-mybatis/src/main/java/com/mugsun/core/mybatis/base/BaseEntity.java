@@ -29,6 +29,21 @@ public class BaseEntity implements Serializable {
 	@Column(isLogicDelete = true)
 	private Integer isDeleted;
 
+	/**
+	 * 服务端清洗（insert 前调用）：剥离请求体伪造的审计字段——create_time/is_deleted 等
+	 * 由数据库与填充器负责，客户端输入一律不信任（MyBatis-Flex update 的 SET 排除集不含这些列）。
+	 */
+	public void sanitizeForInsert() {
+		this.createTime = null;
+		this.updateTime = null;
+		this.isDeleted = null;
+	}
+
+	/** 服务端清洗（update 前调用）：同 {@link #sanitizeForInsert()}，防请求体篡改审计时间与逻辑删除 */
+	public void sanitizeForUpdate() {
+		sanitizeForInsert();
+	}
+
 	public Long getId() {
 		return id;
 	}

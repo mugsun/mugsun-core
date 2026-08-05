@@ -180,6 +180,12 @@
 				<artifactId>fastjson</artifactId>
 				<version>${fastjson2.version}</version>
 			</dependency>
+			<!-- 离线 IP 归属地：ip2region xdb 查询客户端（登录日志 login_location 列，开关缺省关闭） -->
+			<dependency>
+				<groupId>org.lionsoul</groupId>
+				<artifactId>ip2region</artifactId>
+				<version>${ip2region.version}</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 </project>

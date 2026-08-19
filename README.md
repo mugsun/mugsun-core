@@ -125,7 +125,7 @@ sequenceDiagram
 
 ## 🔗 与 mugsun-boot 的关系
 
-本仓是内核，不直接运行；[mugsun-boot](../mugsun-boot)（[GitHub](https://github.com/curdx/mugsun-boot)）是它的第一个消费者——以 `scope=import` 导入 `mugsun-bom` 后按需引入两个 starter，组装为可执行的单体后端。两仓平级放置于同一目录下即可联调。
+本仓是内核，不直接运行；[mugsun-boot](../mugsun-boot)（[GitHub](https://github.com/mugsun/mugsun-boot)）是它的第一个消费者——以 `scope=import` 导入 `mugsun-bom` 后按需引入两个 starter，组装为可执行的单体后端。两仓平级放置于同一目录下即可联调。
 
 ## 📄 许可
 

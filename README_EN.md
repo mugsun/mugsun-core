@@ -125,7 +125,7 @@ sequenceDiagram
 
 ## 🔗 Relationship with mugsun-boot
 
-This repo is the kernel — it doesn't run on its own. [mugsun-boot](../mugsun-boot) ([GitHub](https://github.com/curdx/mugsun-boot)) is its first consumer: it imports `mugsun-bom` with `scope=import`, adds the two starters, and assembles them into a runnable monolithic backend. Keep both repos side by side in the same directory for local development.
+This repo is the kernel — it doesn't run on its own. [mugsun-boot](../mugsun-boot) ([GitHub](https://github.com/mugsun/mugsun-boot)) is its first consumer: it imports `mugsun-bom` with `scope=import`, adds the two starters, and assembles them into a runnable monolithic backend. Keep both repos side by side in the same directory for local development.
 
 ## 📄 License
 

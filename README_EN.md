@@ -127,6 +127,10 @@ sequenceDiagram
 
 This repo is the kernel — it doesn't run on its own. [mugsun-boot](../mugsun-boot) ([GitHub](https://github.com/mugsun/mugsun-boot)) is its first consumer: it imports `mugsun-bom` with `scope=import`, adds the two starters, and assembles them into a runnable monolithic backend. Keep both repos side by side in the same directory for local development.
 
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=mugsun/mugsun-core&type=Date)](https://star-history.com/#mugsun/mugsun-core&Date)
+
 ## 📄 License
 
 [Apache License 2.0](LICENSE)

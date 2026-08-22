@@ -127,6 +127,10 @@ sequenceDiagram
 
 本仓是内核，不直接运行；[mugsun-boot](../mugsun-boot)（[GitHub](https://github.com/mugsun/mugsun-boot)）是它的第一个消费者——以 `scope=import` 导入 `mugsun-bom` 后按需引入两个 starter，组装为可执行的单体后端。两仓平级放置于同一目录下即可联调。
 
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=mugsun/mugsun-core&type=Date)](https://star-history.com/#mugsun/mugsun-core&Date)
+
 ## 📄 许可
 
 [Apache License 2.0](LICENSE)

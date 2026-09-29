@@ -13,14 +13,14 @@
 
 	<groupId>com.mugsun</groupId>
 	<artifactId>mugsun-core</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.1.0</version>
 	<packaging>pom</packaging>
 	<name>mugsun-core</name>
 	<description>Mugsun 平台核心底座</description>
 
 	<properties>
 		<java.version>21</java.version>
-		<mugsun.version>0.0.1-SNAPSHOT</mugsun.version>
+		<mugsun.version>0.1.0</mugsun.version>
 		<mybatis-flex.version>1.11.8</mybatis-flex.version>
 		<mybatis-spring.version>3.0.5</mybatis-spring.version>
 		<mybatis.version>3.5.19</mybatis.version>

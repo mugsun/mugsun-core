@@ -58,7 +58,7 @@ Then import the BOM in your project's `pom.xml` (use this repo's current version
 		<dependency>
 			<groupId>com.mugsun</groupId>
 			<artifactId>mugsun-bom</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
+			<version>0.1.0</version>
 			<type>pom</type>
 			<scope>import</scope>
 		</dependency>

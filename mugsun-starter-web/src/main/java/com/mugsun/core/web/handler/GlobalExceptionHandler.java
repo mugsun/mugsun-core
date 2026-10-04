@@ -88,6 +88,13 @@ public class GlobalExceptionHandler {
 			.body(R.fail(ResultCode.FAILURE, "请求方法不允许"));
 	}
 
+	/** 唯一约束冲突是业务错误，不要落到 500。 */
+	@ExceptionHandler(org.springframework.dao.DuplicateKeyException.class)
+	public ResponseEntity<R<Void>> handleDuplicateKey(org.springframework.dao.DuplicateKeyException e) {
+		log.warn("唯一约束冲突：{}", e.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(R.fail(ResultCode.FAILURE, "数据已存在，请勿重复提交"));
+	}
+
 	/** 兜底 → 500（同步发布错误日志监听，监听器内部异步落库；监听异常不污染主响应） */
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<R<Void>> handleException(Exception e, HttpServletRequest request) {

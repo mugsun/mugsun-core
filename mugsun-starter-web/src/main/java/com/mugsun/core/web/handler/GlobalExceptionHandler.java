@@ -77,6 +77,13 @@ public class GlobalExceptionHandler {
 		org.springframework.web.bind.MissingServletRequestParameterException.class,
 		org.springframework.http.converter.HttpMessageNotReadableException.class})
 	public ResponseEntity<R<Void>> handleBadRequest(Exception e) {
+		Throwable cur = e;
+		while (cur != null) {
+			if (cur instanceof ServiceException service) {
+				return ResponseEntity.ok(R.fail(service.getResultCode(), service.getMessage()));
+			}
+			cur = cur.getCause();
+		}
 		return ResponseEntity.badRequest().body(R.fail(ResultCode.FAILURE));
 	}
 

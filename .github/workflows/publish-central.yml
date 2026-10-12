@@ -28,6 +28,14 @@ jobs:
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
 
+      # ubuntu-latest ships Maven 3.10, which writes maven-metadata-local.xml
+      # into the Central bundle and fails validation ("does NOT have a .pom file").
+      # Pin 3.9.16 until runners / central-publishing fully handle 3.10.
+      - name: Set up Maven 3.9.16
+        uses: stCarolas/setup-maven@v5
+        with:
+          maven-version: 3.9.16
+
       - name: Deploy with release profile
         env:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}

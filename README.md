@@ -1,3 +1,5 @@
+![mugsun-core](https://raw.githubusercontent.com/mugsun/mugsun-docs/main/public/brand/banners/repos/mugsun-core.png)
+
 # mugsun-core
 
 **中文** | [English](./README_EN.md)

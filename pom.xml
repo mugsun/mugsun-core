@@ -68,7 +68,7 @@
 		<!-- fastjson2 的 v1 兼容桥接：替换 JustAuth 传递的旧 fastjson 1.x，消除供应链风险 -->
 		<fastjson2.version>2.0.61</fastjson2.version>
 		<!-- Maven Central publishing (release profile only) -->
-		<central-publishing.version>0.10.0</central-publishing.version>
+		<central-publishing.version>0.11.0</central-publishing.version>
 		<maven-source-plugin.version>3.3.1</maven-source-plugin.version>
 		<maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
 		<maven-gpg-plugin.version>3.2.7</maven-gpg-plugin.version>

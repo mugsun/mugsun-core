@@ -2,135 +2,165 @@
 
 [中文](README.md) | **English**
 
+![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![JDK](https://img.shields.io/badge/JDK-21-blue)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-brightgreen)
-![MyBatis-Flex](https://img.shields.io/badge/MyBatis--Flex-1.11-orange)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.13-brightgreen)
+![MyBatis-Flex](https://img.shields.io/badge/MyBatis--Flex-1.11.8-orange)
+![Sa-Token](https://img.shields.io/badge/Sa--Token-1.44.0-blue)
 ![License](https://img.shields.io/badge/License-Apache%202.0-green)
 
-**The shared kernel of the Mugsun low-code platform** — stack-wide version locking (BOM) plus reusable starters, so every business service gets a unified response envelope, global exception handling, API encryption, and an audited entity base class out of the box, instead of rebuilding them project by project.
+The **shared kernel** of the mugsun platform: a dependency BOM plus two reusable starters. Import them into a Spring Boot app to get a unified API envelope, global exception handling, Sa-Token annotation auth, SM4 request/response crypto, and a MyBatis-Flex `BaseEntity` — without reimplementing the same plumbing in every service.
 
-Version-compatibility traps are fixed once, here in the kernel: MyBatis-Flex pulls in an older `mybatis-spring` that breaks on Spring Boot 3.5 / Spring 6.2 (`NoSuchMethodError`). It is explicitly overridden to 3.0.5 in the BOM and the starter — **consumers never feel it**.
+- **For** services on the same stack as [mugsun-boot](https://github.com/mugsun/mugsun-boot), or new mugsun modules.
+- **Not** a runnable business backend; there is no HTTP entrypoint here.
 
-## 📦 Modules
+Docs: [docs.mugsun.com](https://docs.mugsun.com/) · [Core](https://docs.mugsun.com/core/) · [Architecture](https://docs.mugsun.com/guide/architecture)
 
-Just four modules, each with a single, well-defined job:
+Current version **0.1.0** (aligned with boot). Not published to Maven Central yet — install locally.
 
-| Module | Responsibility | Key classes |
+## Modules
+
+| Module | Role | Key types |
 | --- | --- | --- |
-| `mugsun-bom` | Stack-wide dependency version locking (including the explicit `mybatis-spring` 3.0.5 override) | — (pom) |
-| `mugsun-core-tool` | Unified response envelope, result codes, business exceptions, and shared utilities | `R`, `ResultCode`, `ServiceException`, `ForbiddenException`, `TreeUtil` |
-| `mugsun-starter-web` | Web foundation: global exception handling, annotation-based auth, API encryption, Long precision safety, Excel read/write | `MugsunWebAutoConfiguration`, `GlobalExceptionHandler`, `SafeNumberModule`, `ApiCryptoService`, `ExcelUtil` |
-| `mugsun-starter-mybatis` | Persistence foundation: MyBatis-Flex wiring + entity base class | `BaseEntity` |
-
-## 🔀 Module Graph
+| `mugsun-bom` | Locks dependency versions (incl. overriding Flex’s old `mybatis-spring` → **3.0.5**) | — (pom) |
+| `mugsun-core-tool` | Response envelope, codes, exceptions, tree util | `R`, `ResultCode`, `ServiceException`, `ForbiddenException`, `TreeUtil` |
+| `mugsun-starter-web` | Web base: exceptions, auth interceptor, API crypto, safe Long JSON, Excel | `MugsunWebAutoConfiguration`, `GlobalExceptionHandler`, `ApiCryptoService`, `SafeNumberModule`, `ExcelUtil` |
+| `mugsun-starter-mybatis` | Persistence: MyBatis-Flex + entity base | `BaseEntity` |
 
 ```mermaid
 graph TD
-    BIZ["Business service<br/>(e.g. mugsun-boot)"]
-    BOM["mugsun-bom<br/>stack-wide version locking"]
-    TOOL["mugsun-core-tool<br/>response / exceptions / utilities"]
-    WEB["mugsun-starter-web<br/>web foundation starter"]
-    MB["mugsun-starter-mybatis<br/>persistence foundation starter"]
+  BIZ["App e.g. mugsun-boot"]
+  BOM["mugsun-bom"]
+  TOOL["mugsun-core-tool"]
+  WEB["mugsun-starter-web"]
+  MB["mugsun-starter-mybatis"]
 
-    BIZ -.->|dependencyManagement<br/>scope=import| BOM
-    BIZ --> WEB
-    BIZ --> MB
-    BOM -.->|locks versions| TOOL
-    BOM -.->|locks versions| WEB
-    BOM -.->|locks versions| MB
-    WEB --> TOOL
-    MB --> TOOL
+  BIZ -.->|import BOM| BOM
+  BIZ --> WEB
+  BIZ --> MB
+  WEB --> TOOL
+  MB --> TOOL
+  BOM -.->|versions| TOOL
+  BOM -.->|versions| WEB
+  BOM -.->|versions| MB
 ```
 
-## 🚀 Getting Started
+The BOM also pins versions used by boot (JetCache, x-file-storage, SMS4J, Warm-Flow, PowerJob, LiteFlow, FastExcel, Hutool, BouncyCastle, JustAuth, ip2region, springdoc, …). **Treat root `pom.xml` / `mugsun-bom` as source of truth.**
 
-Build and install into your local Maven repository from the repo root:
+## Quick start
+
+### 1. Install locally
 
 ```bash
+git clone https://github.com/mugsun/mugsun-core.git
+cd mugsun-core
 mvn clean install
 ```
 
-Then import the BOM in your project's `pom.xml` (use this repo's current version):
+For boot, keep a sibling layout: `mugsun/mugsun-core` next to `mugsun/mugsun-boot`.
+
+### 2. Import the BOM
+
+Match this repo’s version (currently `0.1.0`):
 
 ```xml
 <dependencyManagement>
-	<dependencies>
-		<dependency>
-			<groupId>com.mugsun</groupId>
-			<artifactId>mugsun-bom</artifactId>
-			<version>0.1.0</version>
-			<type>pom</type>
-			<scope>import</scope>
-		</dependency>
-	</dependencies>
+  <dependencies>
+    <dependency>
+      <groupId>com.mugsun</groupId>
+      <artifactId>mugsun-bom</artifactId>
+      <version>0.1.0</version>
+      <type>pom</type>
+      <scope>import</scope>
+    </dependency>
+  </dependencies>
 </dependencyManagement>
 ```
 
-Pull in the starters you need — **no version tags required**, the BOM manages them all:
+### 3. Add starters
+
+Versions come from the BOM:
 
 ```xml
 <dependencies>
-	<dependency>
-		<groupId>com.mugsun</groupId>
-		<artifactId>mugsun-starter-web</artifactId>
-	</dependency>
-	<dependency>
-		<groupId>com.mugsun</groupId>
-		<artifactId>mugsun-starter-mybatis</artifactId>
-	</dependency>
+  <dependency>
+    <groupId>com.mugsun</groupId>
+    <artifactId>mugsun-starter-web</artifactId>
+  </dependency>
+  <dependency>
+    <groupId>com.mugsun</groupId>
+    <artifactId>mugsun-starter-mybatis</artifactId>
+  </dependency>
 </dependencies>
 ```
 
-## ✨ What You Get for Free
+## What the starters provide
 
-- **Unified response `R<T>` + `ResultCode`**: every endpoint returns the same envelope (`code/success/data/msg`), so the frontend needs exactly one parsing path; a reserved `dataType` flag carries encrypted responses.
-- **Global exception handling**: business exceptions no longer surface as a bare 500 — `ServiceException` returns its business code, while unauthenticated maps to 401, forbidden to 403, validation failure to 400, missing resource to 404, and wrong method to 405, all aligned with HTTP semantics. The catch-all 500 also publishes to `ErrorLogListener`, so persisting error logs takes a single interface implementation on the business side.
-- **Annotation-based auth**: `SaInterceptor` is auto-registered against `/**`, making Sa-Token annotations such as `@SaCheckLogin` and `@SaCheckPermission` work out of the box.
-- **SM4 API encryption**: opt in per endpoint with `@ApiDecrypt` / `@ApiEncrypt`. SM4-CBC with a fresh random IV per request (non-deterministic ciphertext, interoperable with the frontend's sm-crypto). The key is injected externally via `mugsun.crypto.api-key`, and with `mugsun.crypto.strict-keys=true` the app refuses to start without one — no default key ever reaches production.
-- **Long precision safety**: `SafeNumberModule` applies globally through Jackson — `Long` / `BigInteger` values beyond the JS safe-integer range (±2^53) serialize as strings, so snowflake IDs never lose precision in the frontend; in-range numbers stay numeric, keeping pagination totals and friends untouched.
-- **`BaseEntity`**: snowflake primary key (flexId), database `now()`-filled create/update timestamps, and logical delete out of the box. `sanitizeForInsert()` / `sanitizeForUpdate()` strip forged audit fields from the request body before writes — client input is never trusted.
-- **One-line Excel**: `ExcelUtil` (built on FastExcel) reads an uploaded file into an object list and exports an object list as an xlsx download, with field mapping declared via `@ExcelProperty`.
-- **Cycle-safe tree building**: `TreeUtil.build()` turns a flat list into a tree; dirty data with cyclic parent pointers is dropped along with its cycle instead of blowing up into a `StackOverflowError` and a permanent 500.
+Wired via `AutoConfiguration.imports` when the jar is on the classpath:
 
-The full path of one HTTP request through the starter's auto-configured components:
+- **`R<T>` / `ResultCode`**: `code`, `success`, `data`, `msg`; encrypted payloads use `dataType=ENCRYPT`.
+- **Global exceptions**: business via `ServiceException`; 401 / 403 / 400 / 404 / 405; 500 can emit `ErrorLogListener`.
+- **Annotation auth**: `SaInterceptor` on `/**` for `@SaCheckLogin`, `@SaCheckPermission`, etc.
+- **API crypto**: `@ApiDecrypt` / `@ApiEncrypt`, SM4-CBC with per-request IV; key from app config `mugsun.crypto.api-key`.
+- **Safe Long JSON**: values outside JS safe-integer range serialize as strings.
+- **Excel**: `ExcelUtil` (FastExcel) with `@ExcelProperty`.
+- **`BaseEntity`**: flexId snowflake, DB `now()` timestamps, logic delete; `sanitizeForInsert/Update` strips forged audit fields.
+- **`TreeUtil.build()`**: cycle-safe tree build.
 
 ```mermaid
 sequenceDiagram
-	participant FE as Frontend
-	participant SA as SaInterceptor
-	participant DA as DecryptRequestAdvice
-	participant CTL as Controller
-	participant EA as EncryptResponseAdvice
-	participant EH as GlobalExceptionHandler
+  participant FE as Client
+  participant SA as SaInterceptor
+  participant DA as DecryptRequestAdvice
+  participant CTL as Controller
+  participant EA as EncryptResponseAdvice
+  participant EH as GlobalExceptionHandler
 
-	FE->>SA: HTTP request
-	SA->>SA: annotation auth (@SaCheckLogin etc.)
-	SA-->>FE: unauthenticated 401 / forbidden 403
-	SA->>DA: authenticated, on to argument binding
-	DA->>DA: @ApiDecrypt → SM4-decrypt {encryptData}
-	DA->>CTL: bind plaintext JSON to object
-	CTL->>EA: return R<T>
-	EA->>EA: @ApiEncrypt → encrypt data, set dataType=ENCRYPT
-	EA->>FE: unified R envelope (oversized Longs as strings)
-	CTL--xEH: exception thrown at any stage
-	EH-->>FE: R envelope with aligned HTTP status (400/401/403/404/405/500)
+  FE->>SA: HTTP
+  SA->>SA: annotations
+  SA-->>FE: 401 / 403
+  SA->>DA: OK
+  DA->>DA: @ApiDecrypt
+  DA->>CTL: bind
+  CTL->>EA: R of T
+  EA->>EA: @ApiEncrypt
+  EA->>FE: R
+  CTL--xEH: exception
+  EH-->>FE: R + status
 ```
 
-## 🧭 Design Conventions
+## Conventions
 
-- **Java 21+**: the whole repo compiles with `<java.version>21</java.version>`.
-- **Tab indentation**: tabs everywhere, never mixed with spaces.
-- **Explicit auto-configuration**: starters are wired through `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` — no component-scan fallback. They take effect only when included, and removing the dependency disables them completely.
-- **Overridable by design**: every auto-configured bean carries `@ConditionalOnMissingBean`, so a business service can replace any default by declaring its own bean of the same type.
+- **Java 21**
+- Parent: `spring-boot-starter-parent` **3.5.13**
+- Explicit auto-config only (no component-scan fallback)
+- Beans are `@ConditionalOnMissingBean`
+- Flex’s transitive old `mybatis-spring` is overridden to **3.0.5** for Spring 6.2
 
-## 🔗 Relationship with mugsun-boot
+## Relationship to mugsun-boot
 
-This repo is the kernel — it doesn't run on its own. [mugsun-boot](../mugsun-boot) ([GitHub](https://github.com/mugsun/mugsun-boot)) is its first consumer: it imports `mugsun-bom` with `scope=import`, adds the two starters, and assembles them into a runnable monolithic backend. Keep both repos side by side in the same directory for local development.
+This repo does not run by itself. [mugsun-boot](https://github.com/mugsun/mugsun-boot) imports the BOM and both starters. CI and the boot Dockerfile expect the two repos as siblings.
 
-## ⭐ Star History
+Free OSS line: `boot` · `core` · `pc` · `track`. cloud / uniappx-ui are planned or commercial — not claimed as shipped open products here.
 
-[![Star History Chart](https://api.star-history.com/svg?repos=mugsun/mugsun-core&type=Date)](https://star-history.com/#mugsun/mugsun-core&Date)
+## Build & CI
 
-## 📄 License
+```bash
+mvn -B install
+```
+
+GitHub Actions: Temurin JDK 21, `mvn -B install`. Commit style: [.github/COMMIT_CONVENTION.md](.github/COMMIT_CONVENTION.md).
+
+## Links
+
+| | |
+| --- | --- |
+| Docs | https://docs.mugsun.com/ |
+| Core docs | https://docs.mugsun.com/core/ |
+| Boot | https://github.com/mugsun/mugsun-boot |
+| Admin UI | https://github.com/mugsun/mugsun-pc |
+| Site | https://mugsun.com |
+
+## License
 
 [Apache License 2.0](LICENSE)

@@ -2,137 +2,169 @@
 
 **中文** | [English](README_EN.md)
 
+![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![JDK](https://img.shields.io/badge/JDK-21-blue)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-brightgreen)
-![MyBatis-Flex](https://img.shields.io/badge/MyBatis--Flex-1.11-orange)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.13-brightgreen)
+![MyBatis-Flex](https://img.shields.io/badge/MyBatis--Flex-1.11.8-orange)
+![Sa-Token](https://img.shields.io/badge/Sa--Token-1.44.0-blue)
 ![License](https://img.shields.io/badge/License-Apache%202.0-green)
 
-mugsun 平台的公共内核：全栈依赖版本锁定（BOM）加两个可复用 starter。业务工程导入后即可获得统一响应、全局异常处理、接口加解密与审计基类，无需在各工程内重复实现。
+mugsun 平台的**公共内核**：一份依赖 BOM + 两个可复用 Starter。业务工程引入后即可获得统一响应、全局异常、Sa-Token 注解鉴权、接口国密加解密，以及 MyBatis-Flex 实体基类——不必在每个服务里重写一遍。
 
-版本兼容问题在内核层统一处理：MyBatis-Flex 传递的旧版 `mybatis-spring` 与 Spring Boot 3.5 / Spring 6.2 冲突（表现为 `NoSuchMethodError`），BOM 与 starter 中已显式覆盖为 3.0.5。
+- **适合**：搭建与 [mugsun-boot](https://github.com/mugsun/mugsun-boot) 同栈的 Spring Boot 3.5 服务，或扩展 mugsun 模块。
+- **不是**：可独立运行的业务后端；本仓不提供 HTTP 入口，消费者是 boot 等业务工程。
 
-## 模块总表
+文档：[docs.mugsun.com](https://docs.mugsun.com/) · [Core 章节](https://docs.mugsun.com/core/) · [架构](https://docs.mugsun.com/guide/architecture)
 
-全仓四个模块，职责单一：
+当前版本 **0.1.0**（与 boot 对齐）。尚未发布到 Maven Central，需本地 `mvn install`。
 
-| 模块 | 职责 | 关键类 |
+## 模块
+
+| 模块 | 职责 | 关键类型 |
 | --- | --- | --- |
-| `mugsun-bom` | 全栈依赖版本锁定（含 `mybatis-spring` 3.0.5 显式覆盖） | —（pom） |
-| `mugsun-core-tool` | 统一响应、统一状态码、业务异常与通用工具 | `R`、`ResultCode`、`ServiceException`、`ForbiddenException`、`TreeUtil` |
-| `mugsun-starter-web` | Web 基座：全局异常、注解鉴权、接口加解密、Long 精度安全、Excel 读写 | `MugsunWebAutoConfiguration`、`GlobalExceptionHandler`、`SafeNumberModule`、`ApiCryptoService`、`ExcelUtil` |
-| `mugsun-starter-mybatis` | 持久层基座：MyBatis-Flex 装配与实体基类 | `BaseEntity` |
-
-## 模块关系
+| `mugsun-bom` | 全栈依赖版本锁定（含对 Flex 传递旧版 `mybatis-spring` 的显式覆盖 → **3.0.5**） | —（pom） |
+| `mugsun-core-tool` | 统一响应、状态码、业务异常、树工具 | `R`、`ResultCode`、`ServiceException`、`ForbiddenException`、`TreeUtil` |
+| `mugsun-starter-web` | Web 基座：全局异常、注解鉴权、接口加解密、Long 精度安全、Excel | `MugsunWebAutoConfiguration`、`GlobalExceptionHandler`、`ApiCryptoService`、`SafeNumberModule`、`ExcelUtil` |
+| `mugsun-starter-mybatis` | 持久层：MyBatis-Flex 装配 + 实体基类 | `BaseEntity` |
 
 ```mermaid
 graph TD
-    BIZ["业务工程<br/>（如 mugsun-boot）"]
-    BOM["mugsun-bom<br/>全栈版本锁定"]
-    TOOL["mugsun-core-tool<br/>统一响应 / 异常 / 工具"]
-    WEB["mugsun-starter-web<br/>Web 基座 starter"]
-    MB["mugsun-starter-mybatis<br/>持久层基座 starter"]
+  BIZ["业务工程<br/>如 mugsun-boot"]
+  BOM["mugsun-bom"]
+  TOOL["mugsun-core-tool"]
+  WEB["mugsun-starter-web"]
+  MB["mugsun-starter-mybatis"]
 
-    BIZ -.->|dependencyManagement<br/>scope=import| BOM
-    BIZ --> WEB
-    BIZ --> MB
-    BOM -.->|锁定版本| TOOL
-    BOM -.->|锁定版本| WEB
-    BOM -.->|锁定版本| MB
-    WEB --> TOOL
-    MB --> TOOL
+  BIZ -.->|import BOM| BOM
+  BIZ --> WEB
+  BIZ --> MB
+  WEB --> TOOL
+  MB --> TOOL
+  BOM -.->|锁定版本| TOOL
+  BOM -.->|锁定版本| WEB
+  BOM -.->|锁定版本| MB
 ```
+
+BOM 还统一锁定业务侧常用依赖版本（供 boot 等 import），例如：JetCache、x-file-storage、SMS4J、Warm-Flow、PowerJob、LiteFlow、FastExcel、Hutool、BouncyCastle、JustAuth、ip2region、springdoc 等——**版本以本仓根 `pom.xml` / `mugsun-bom` 为准**。
 
 ## 快速接入
 
-在本仓根目录构建并安装到本地 Maven 仓库：
+### 1. 安装到本地仓库
 
 ```bash
+git clone https://github.com/mugsun/mugsun-core.git
+cd mugsun-core
 mvn clean install
 ```
 
-在业务工程 `pom.xml` 中导入 BOM，版本号与本仓当前版本一致：
+与 boot 联调时保持平级目录：`mugsun/mugsun-core` 与 `mugsun/mugsun-boot`。
+
+### 2. 业务工程导入 BOM
+
+版本须与本仓一致（当前 `0.1.0`）：
 
 ```xml
 <dependencyManagement>
-	<dependencies>
-		<dependency>
-			<groupId>com.mugsun</groupId>
-			<artifactId>mugsun-bom</artifactId>
-			<version>0.1.0</version>
-			<type>pom</type>
-			<scope>import</scope>
-		</dependency>
-	</dependencies>
+  <dependencies>
+    <dependency>
+      <groupId>com.mugsun</groupId>
+      <artifactId>mugsun-bom</artifactId>
+      <version>0.1.0</version>
+      <type>pom</type>
+      <scope>import</scope>
+    </dependency>
+  </dependencies>
 </dependencyManagement>
 ```
 
-按需引入 starter，版本由 BOM 接管，不必再写：
+### 3. 按需引入 Starter
+
+版本由 BOM 管理，不必再写 `<version>`：
 
 ```xml
 <dependencies>
-	<dependency>
-		<groupId>com.mugsun</groupId>
-		<artifactId>mugsun-starter-web</artifactId>
-	</dependency>
-	<dependency>
-		<groupId>com.mugsun</groupId>
-		<artifactId>mugsun-starter-mybatis</artifactId>
-	</dependency>
+  <dependency>
+    <groupId>com.mugsun</groupId>
+    <artifactId>mugsun-starter-web</artifactId>
+  </dependency>
+  <dependency>
+    <groupId>com.mugsun</groupId>
+    <artifactId>mugsun-starter-mybatis</artifactId>
+  </dependency>
 </dependencies>
 ```
 
-## starter 提供的能力
+## Starter 提供的能力
 
-- **统一响应 `R<T>` 与 `ResultCode`**：所有接口返回同一结构（`code`/`success`/`data`/`msg`），前端只需一套解析逻辑；`dataType` 标记位用于承接加密响应。
-- **全局异常处理**：`ServiceException` 按业务码返回；未登录 401、越权 403、参数校验失败 400、资源不存在 404、请求方法不允许 405，与 HTTP 语义对齐。兜底 500 会同步发布 `ErrorLogListener` 事件，业务侧实现该接口即可把错误日志落库。
-- **注解鉴权**：自动注册 `SaInterceptor` 并拦截 `/**`，`@SaCheckLogin`、`@SaCheckPermission` 等 Sa-Token 注解可直接使用。
-- **接口国密加解密**：`@ApiDecrypt` / `@ApiEncrypt` 为注解级开关，采用 SM4-CBC 且每次请求随机 IV（密文非确定性，与前端 sm-crypto 互通）。密钥经 `mugsun.crypto.api-key` 外部注入；`mugsun.crypto.strict-keys=true` 时密钥缺失将拒绝启动，避免带默认密钥上生产。
-- **Long 精度安全**：`SafeNumberModule` 随 Jackson 全局生效，超出 JS 安全整数范围（±2^53）的 `Long` 与 `BigInteger` 序列化为字符串，雪花主键不会在前端丢精度；范围内数值照常输出，分页总数等字段不受影响。
-- **实体基类 `BaseEntity`**：提供雪花主键（flexId）、由数据库 `now()` 填充的创建与更新时间、逻辑删除。`sanitizeForInsert()` 与 `sanitizeForUpdate()` 在写入前剥离请求体中伪造的审计字段，客户端输入一律不信任。
-- **Excel 读写**：`ExcelUtil` 基于 FastExcel，支持上传文件读为对象列表、对象列表导出 xlsx 触发下载，字段映射由 `@ExcelProperty` 声明。
-- **树构建带环保护**：`TreeUtil.build()` 将扁平列表转为树，父指针成环的脏数据随环整体剔除，避免 `StackOverflow` 导致持续 500。
+均来自当前源码，引入对应 jar 后由 `AutoConfiguration.imports` 显式装配：
 
-一次 HTTP 请求经过 starter 自动装配件的完整链路：
+- **统一响应 `R<T>` / `ResultCode`**：`code` · `success` · `data` · `msg`；加密响应用 `dataType=ENCRYPT`。
+- **全局异常**：`ServiceException` 按业务码返回；未登录 401、越权 403、参数 400、404、405；兜底 500 可发布 `ErrorLogListener` 事件落库。
+- **注解鉴权**：注册 `SaInterceptor` 拦截 `/**`，直接使用 `@SaCheckLogin` / `@SaCheckPermission` 等。
+- **接口国密加解密**：`@ApiDecrypt` / `@ApiEncrypt`，SM4-CBC + 每请求随机 IV；密钥经业务侧 `mugsun.crypto.api-key` 注入。
+- **Long 精度安全**：`SafeNumberModule` 将超出 JS 安全整数的 `Long`/`BigInteger` 序列化为字符串。
+- **Excel**：`ExcelUtil`（FastExcel）读写，字段用 `@ExcelProperty`。
+- **实体基类 `BaseEntity`**：雪花主键（flexId）、`create_time` / `update_time`（库端 `now()`）、逻辑删除；`sanitizeForInsert/Update` 剥离请求体伪造的审计字段。
+- **树工具**：`TreeUtil.build()` 带环保护，脏父指针成环时剔除，避免 `StackOverflow`。
+
+请求链路示意：
 
 ```mermaid
 sequenceDiagram
-	participant FE as 前端
-	participant SA as SaInterceptor
-	participant DA as DecryptRequestAdvice
-	participant CTL as Controller
-	participant EA as EncryptResponseAdvice
-	participant EH as GlobalExceptionHandler
+  participant FE as Client
+  participant SA as SaInterceptor
+  participant DA as DecryptRequestAdvice
+  participant CTL as Controller
+  participant EA as EncryptResponseAdvice
+  participant EH as GlobalExceptionHandler
 
-	FE->>SA: HTTP 请求
-	SA->>SA: 注解鉴权（@SaCheckLogin 等）
-	SA-->>FE: 未登录 401 / 无权限 403
-	SA->>DA: 鉴权通过，进入参数绑定
-	DA->>DA: @ApiDecrypt → SM4 解密 {encryptData}
-	DA->>CTL: 明文 JSON 绑定为对象
-	CTL->>EA: 返回 R<T>
-	EA->>EA: @ApiEncrypt → data 加密并置 dataType=ENCRYPT
-	EA->>FE: 统一 R 响应（超长 Long 自动转字符串）
-	CTL--xEH: 任一环节抛出异常
-	EH-->>FE: 对齐 HTTP 状态码的 R 响应（400/401/403/404/405/500）
+  FE->>SA: HTTP
+  SA->>SA: @SaCheckLogin / Permission
+  SA-->>FE: 401 / 403
+  SA->>DA: OK
+  DA->>DA: @ApiDecrypt → SM4
+  DA->>CTL: bind
+  CTL->>EA: R of T
+  EA->>EA: @ApiEncrypt
+  EA->>FE: R
+  CTL--xEH: exception
+  EH-->>FE: R with HTTP status
 ```
 
 ## 设计约定
 
-- **Java 21+**：全仓以 `<java.version>21</java.version>` 编译。
-- **Tab 缩进**：全仓统一使用 Tab，不混用空格。
-- **显式自动装配**：starter 通过 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` 声明装配，不做组件扫描兜底，引入才生效，排除即完全关闭。
-- **可被覆盖**：装配的 Bean 均带 `@ConditionalOnMissingBean`，业务工程声明同类型 Bean 即可替换默认实现。
+- **Java 21**：根 POM `<java.version>21</java.version>`。
+- **父工程**：`spring-boot-starter-parent` **3.5.13**。
+- **显式自动装配**：`META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`，不做组件扫描兜底。
+- **可覆盖**：装配 Bean 带 `@ConditionalOnMissingBean`。
+- **兼容修复**：MyBatis-Flex 传递的旧 `mybatis-spring` 与 Spring 6.2 冲突（`NoSuchMethodError`），BOM / starter 已锁定 **3.0.5**。
 
-## 与 mugsun-boot 的关系
+## 与 mugsun-boot
 
-本仓是内核，不直接运行。[mugsun-boot](https://github.com/mugsun/mugsun-boot) 是它的第一个消费者，以 `scope=import` 导入 `mugsun-bom` 后按需引入两个 starter，组装为可执行的单体后端。两仓平级放置于同一目录即可联调。
+本仓是内核，不直接 `spring-boot:run`。[mugsun-boot](https://github.com/mugsun/mugsun-boot) 是首要消费者：import `mugsun-bom`，再依赖两个 starter，组装为单体后端。CI 与 Dockerfile 均要求两仓平级。
 
-提交信息规范见 [.github/COMMIT_CONVENTION.md](.github/COMMIT_CONVENTION.md)。
+免费开源主线：`boot` · `core` · `pc` · `track`。cloud / uniappx-ui 规划或商业意向，不以本仓名义写成已交付产品。
 
-## Star History
+## 构建与 CI
 
-[![Star History Chart](https://api.star-history.com/svg?repos=mugsun/mugsun-core&type=Date)](https://star-history.com/#mugsun/mugsun-core&Date)
+```bash
+mvn -B install
+```
 
-## 许可
+GitHub Actions：JDK 21 Temurin，`mvn -B install`（见 `.github/workflows/ci.yml`）。
+
+提交规范：[.github/COMMIT_CONVENTION.md](.github/COMMIT_CONVENTION.md)。
+
+## 相关链接
+
+| 资源 | 地址 |
+| --- | --- |
+| 文档站 | https://docs.mugsun.com/ |
+| Core 文档 | https://docs.mugsun.com/core/ |
+| Boot | https://github.com/mugsun/mugsun-boot |
+| 管理端 | https://github.com/mugsun/mugsun-pc |
+| 官网 | https://mugsun.com |
+
+## 许可证
 
 [Apache License 2.0](LICENSE)

@@ -1,46 +1,34 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/mugsun/mugsun-docs/main/public/brand/banners/github-banner-dark.png" alt="mugsun" width="100%" />
-</p>
-
 # mugsun-core
 
 [简体中文](./README.md) | English
 
-**Shared kernel for the boot stack: one BOM, two starters, import from business apps.**  
-Unified responses, Sa-Token annotation auth, API crypto, MyBatis-Flex base entities — not a runnable backend by itself.
+This repository is the shared kernel of the mugsun platform. It publishes a BOM, common utilities, and Spring Boot starters for business applications to consume via Maven coordinates. Unified response types, Sa-Token annotation auth, API crypto, and MyBatis-Flex base entities are assembled here. This repository does not expose a runnable HTTP entrypoint.
 
-[Docs](https://docs.mugsun.com/en/core/) · [Architecture](https://docs.mugsun.com/en/guide/architecture) · [Demo (coming soon)](https://docs.mugsun.com/en/demo)
+[Documentation](https://docs.mugsun.com/en/core/) · [Architecture](https://docs.mugsun.com/en/guide/architecture) · [Maven Central](https://central.sonatype.com/search?q=com.mugsun)
 
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![JDK](https://img.shields.io/badge/JDK-21-blue)
 ![Spring%20Boot](https://img.shields.io/badge/Spring%20Boot-3.5.13-brightgreen)
+![Maven%20Central](https://img.shields.io/maven-central/v/com.mugsun/mugsun-starter-web)
 ![License](https://img.shields.io/badge/License-Apache%202.0-green)
 
----
+## Overview
 
-## Why this
+| Item | Detail |
+| --- | --- |
+| Coordinates | `com.mugsun:mugsun-*:0.1.0` (published on [Maven Central](https://repo1.maven.org/maven2/com/mugsun/)) |
+| Runtime | JDK 21; Maven 3.9+ |
+| Parent | Spring Boot 3.5.13 |
+| License | [Apache-2.0](./LICENSE) |
+| Docs | [docs.mugsun.com/en/core](https://docs.mugsun.com/en/core/) |
 
-1. **Same version lock as boot** — Spring Boot **3.5.13**, Java **21**; `mugsun-bom` pins Flex / Sa-Token / JetCache and friends so every service does not invent its own BOM.
-2. **Explicit auto-config** — `AutoConfiguration.imports` wires exception handling, auth interceptor, crypto, and entity base; beans are `@ConditionalOnMissingBean`.
-3. **Coordinates ready, Central publish in progress** — `groupId`=`com.mugsun`, version **0.1.0**. The `-Prelease` path targets Maven Central; **until the first successful sync**, use local `mvn install` below as a fallback for [mugsun-boot](https://github.com/mugsun/mugsun-boot) and siblings.
+Stack (per current POM): MyBatis-Flex 1.11.8, Sa-Token 1.44.0, JetCache, Hutool Crypto / BouncyCastle (API crypto), FastExcel, and related libraries — versions locked by `mugsun-bom`.
 
-No HTTP entrypoint and no `spring-boot:run` here — use boot for a runnable server.
+## Deployment
 
----
+Prefer Maven Central. Sibling `mvn install` is not required for normal consumption.
 
-## Shortest path
-
-After Maven Central publish and sync, apps can depend on the coordinates below with no sibling install.
-
-**Until then** (current state), clone as a sibling of boot and install once as a fallback:
-
-```bash
-git clone https://github.com/mugsun/mugsun-core.git
-cd mugsun-core
-mvn clean install -DskipTests
-```
-
-Business apps import the BOM (must match this repo — currently **0.1.0**), then the starters:
+Import the BOM in `dependencyManagement`, then declare starters as needed:
 
 ```xml
 <dependencyManagement>
@@ -67,46 +55,63 @@ Business apps import the BOM (must match this repo — currently **0.1.0**), the
 </dependencies>
 ```
 
-Full vertical slice: [boot shortest path](https://github.com/mugsun/mugsun-boot/blob/main/README_EN.md#shortest-local-path) · [docs](https://docs.mugsun.com/en/guide/getting-started).
+For a runnable backend, use [mugsun-boot](https://github.com/mugsun/mugsun-boot). Full vertical slice: [Documentation · Getting started](https://docs.mugsun.com/en/guide/getting-started).
 
----
+**Local install** (offline use or Central sync fallback):
 
-## Shape
-
-```mermaid
-flowchart TB
-  BOOT["mugsun-boot"] -->|import| BOM["mugsun-bom"]
-  BOOT --> WEB["mugsun-starter-web"]
-  BOOT --> MB["mugsun-starter-mybatis"]
-  WEB --> TOOL["mugsun-core-tool"]
-  MB --> TOOL
+```bash
+git clone https://github.com/mugsun/mugsun-core.git
+cd mugsun-core
+mvn clean install -DskipTests
 ```
+
+Publishing to Central: create a GitHub Release on this repository, or run the **Publish to Maven Central** Actions workflow (`workflow_dispatch` / `release` published). Local equivalent: `mvn -Prelease clean deploy -DskipTests` (Portal token and GPG required).
+
+## Composition
 
 ```text
 mugsun-core/
   mugsun-bom/            # version lock (incl. mybatis-spring → 3.0.5 override)
-  mugsun-core-tool/      # R / ResultCode / exceptions / TreeUtil
-  mugsun-starter-web/    # exceptions, Sa interceptor, ApiCrypto, SafeNumber, Excel
-  mugsun-starter-mybatis/ # Flex wiring + BaseEntity
+  mugsun-core-tool/      # R / ResultCode / service exceptions / TreeUtil
+  mugsun-starter-web/    # global exceptions, Sa-Token annotation interceptor, ApiCrypto, SafeNumber, Excel
+  mugsun-starter-mybatis/ # MyBatis-Flex starter + BaseEntity (snowflake id, audit times, logic delete)
 ```
 
-> **Screenshot placeholder** — module / response samples go here when ready. See [Demo](https://docs.mugsun.com/en/demo).
-
-Class lists and config keys live in [docs](https://docs.mugsun.com/en/core/) and source — not a capability matrix in this README.
-
----
-
-## Honest boundaries
-
-| Includes | Does not / not yet |
+| Module | Role |
 | --- | --- |
-| BOM + web / mybatis starters | A standalone HTTP service |
-| Coordinates aligned with boot **0.1.0**, plus local install fallback | First Maven Central publish not completed yet |
-| Explicit fix for Flex’s old `mybatis-spring` | Claiming uniappx-ui / cloud as shipped |
+| `mugsun-bom` | Pins this repository’s artifacts and third-party versions (Flex, Sa-Token, JetCache, …) |
+| `mugsun-core-tool` | Spring-free common API types and utilities |
+| `mugsun-starter-web` | `AutoConfiguration.imports` wires exception handling, Sa interceptor, crypto advice, and related beans; all `@ConditionalOnMissingBean` |
+| `mugsun-starter-mybatis` | Brings in the Flex Spring Boot starter and `BaseEntity`; explicitly overrides Flex’s transitive older `mybatis-spring` |
 
-Free OSS line: `boot` · `core` · `pc` · `track`. More: [docs.mugsun.com](https://docs.mugsun.com/en/).
+There is no `spring-boot:run` goal in this repository. Use [mugsun-boot](https://github.com/mugsun/mugsun-boot) for a runnable server.
 
----
+## Scope
+
+**Provided**
+
+- BOM plus `mugsun-starter-web` / `mugsun-starter-mybatis` starters
+- Maven Central coordinates aligned with boot **0.1.0**
+- Sa-Token annotation auth interceptor, unified responses and service exceptions, API crypto, safe large-number serialization
+- Flex base entity and an explicit override for the older transitive `mybatis-spring`
+
+**Not provided**
+
+- A standalone HTTP service or domain business modules
+- Treating uniappx-ui / cloud as shipped product dependencies
+
+Class lists and configuration keys are defined in the [documentation](https://docs.mugsun.com/en/core/) and source tree.
+
+## Related projects
+
+Open-source line: `boot` · `core` · `pc` · `track` · [mugsun-docs](https://github.com/mugsun/mugsun-docs).
+
+| Repository | Relationship |
+| --- | --- |
+| [mugsun-boot](https://github.com/mugsun/mugsun-boot) | Primary consumer; depends via Central coordinates or local install |
+| [mugsun-pc](https://github.com/mugsun/mugsun-pc) | Admin console; not a direct dependency of this repository |
+| [mugsun-track](https://github.com/mugsun/mugsun-track) | Browser SDK; related indirectly through boot’s track module |
+| [mugsun-docs](https://github.com/mugsun/mugsun-docs) | Documentation site [docs.mugsun.com](https://docs.mugsun.com/) |
 
 ## License
 

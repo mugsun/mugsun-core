@@ -22,7 +22,7 @@
 
 1. **和 boot 同版本锁**：父工程 Spring Boot **3.5.13**、Java **21**；`mugsun-bom` 把 Flex / Sa-Token / JetCache 等钉死，避免每个服务各写一份。
 2. **显式自动装配**：`AutoConfiguration.imports` 挂上全局异常、鉴权拦截、加解密与实体基类；`@ConditionalOnMissingBean` 可覆盖。
-3. **先装再被消费**：未发 Maven Central；本地 `mvn install` 一次，[mugsun-boot](https://github.com/mugsun/mugsun-boot) 等业务仓平级引用。
+3. **坐标已定，发布进行中**：`groupId`=`com.mugsun`，版本 **0.1.0**。Maven Central 发布流程已接入（`-Prelease`）；**首次成功同步前**仍用下方本地 `mvn install` 作为回退，供 [mugsun-boot](https://github.com/mugsun/mugsun-boot) 等业务仓引用。
 
 它没有 HTTP 入口，也不能 `spring-boot:run`——要可运行后端请去 boot。
 
@@ -30,7 +30,9 @@
 
 ## 最短路径
 
-与 boot **平级** clone 后：
+发布到 Maven Central 并完成同步后，业务工程可直接按下述坐标引入，无需平级 install。
+
+**在此之前**（当前状态），与 boot **平级** clone 后本地安装一次作为回退：
 
 ```bash
 git clone https://github.com/mugsun/mugsun-core.git
@@ -99,7 +101,7 @@ mugsun-core/
 | 有 | 没有 / 尚未 |
 | --- | --- |
 | BOM + web / mybatis 两个 Starter | 可独立运行的 HTTP 服务 |
-| 与 boot **0.1.0** 对齐的本地 install | Maven Central 发布 |
+| 与 boot **0.1.0** 对齐的坐标与本地 install 回退 | Maven Central 首次发布尚未完成 |
 | Flex 传递旧 `mybatis-spring` 的显式修复 | 把 uniappx-ui / cloud 写成已交付 |
 
 免费开源主线：`boot` · `core` · `pc` · `track`。更多：[docs.mugsun.com](https://docs.mugsun.com/)。

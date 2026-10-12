@@ -22,7 +22,7 @@ Unified responses, Sa-Token annotation auth, API crypto, MyBatis-Flex base entit
 
 1. **Same version lock as boot** — Spring Boot **3.5.13**, Java **21**; `mugsun-bom` pins Flex / Sa-Token / JetCache and friends so every service does not invent its own BOM.
 2. **Explicit auto-config** — `AutoConfiguration.imports` wires exception handling, auth interceptor, crypto, and entity base; beans are `@ConditionalOnMissingBean`.
-3. **Install, then consume** — not on Maven Central yet; `mvn install` once, then [mugsun-boot](https://github.com/mugsun/mugsun-boot) (and siblings) import as peers.
+3. **Coordinates ready, Central publish in progress** — `groupId`=`com.mugsun`, version **0.1.0**. The `-Prelease` path targets Maven Central; **until the first successful sync**, use local `mvn install` below as a fallback for [mugsun-boot](https://github.com/mugsun/mugsun-boot) and siblings.
 
 No HTTP entrypoint and no `spring-boot:run` here — use boot for a runnable server.
 
@@ -30,7 +30,9 @@ No HTTP entrypoint and no `spring-boot:run` here — use boot for a runnable ser
 
 ## Shortest path
 
-Clone as a sibling of boot:
+After Maven Central publish and sync, apps can depend on the coordinates below with no sibling install.
+
+**Until then** (current state), clone as a sibling of boot and install once as a fallback:
 
 ```bash
 git clone https://github.com/mugsun/mugsun-core.git
@@ -99,7 +101,7 @@ Class lists and config keys live in [docs](https://docs.mugsun.com/en/core/) and
 | Includes | Does not / not yet |
 | --- | --- |
 | BOM + web / mybatis starters | A standalone HTTP service |
-| Local install aligned with boot **0.1.0** | Maven Central publish |
+| Coordinates aligned with boot **0.1.0**, plus local install fallback | First Maven Central publish not completed yet |
 | Explicit fix for Flex’s old `mybatis-spring` | Claiming uniappx-ui / cloud as shipped |
 
 Free OSS line: `boot` · `core` · `pc` · `track`. More: [docs.mugsun.com](https://docs.mugsun.com/en/).

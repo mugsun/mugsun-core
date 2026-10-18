@@ -11,6 +11,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -174,5 +176,81 @@ class GlobalExceptionHandlerTest {
 		ResponseEntity<R<Void>> resp = h.handleException(new RuntimeException("boom"), mock(HttpServletRequest.class));
 
 		assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+	}
+
+	/** 模拟 PostgreSQL / MySQL 驱动经 Spring 翻译后的 message：带 SQL、约束名和字段值 */
+	private static final String RAW_DUPLICATE_MESSAGE = "\n### Error updating database.  Cause: org.postgresql.util.PSQLException: "
+		+ "ERROR: duplicate key value violates unique constraint \"uk_sys_user_username\"\n"
+		+ "  Detail: Key (tenant_id, username)=(000000, alice) already exists.\n"
+		+ "### SQL: INSERT INTO sys_user (id, tenant_id, username) VALUES (?, ?, ?)";
+
+	@Test
+	@DisplayName("唯一约束冲突 → 400「数据已存在」，不进错误日志")
+	void duplicateKeyIsBadRequest() {
+		ResponseEntity<R<Void>> resp = handler.handleException(
+			new DuplicateKeyException(RAW_DUPLICATE_MESSAGE), mock(HttpServletRequest.class));
+
+		assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		assertThat(resp.getBody().getCode()).isEqualTo(ResultCode.FAILURE.getCode()).isEqualTo(400);
+		assertThat(resp.getBody().getMsg()).isEqualTo("数据已存在，请勿重复提交");
+		assertThat(resp.getBody().isSuccess()).isFalse();
+		assertThat(captured).isEmpty();
+	}
+
+	@Test
+	@DisplayName("唯一约束冲突的响应不带 SQL、约束名、表名和字段值")
+	void duplicateKeyDoesNotLeakSql() {
+		ResponseEntity<R<Void>> resp = handler.handleException(
+			new DuplicateKeyException(RAW_DUPLICATE_MESSAGE, new IllegalStateException("uk_sys_user_username")),
+			mock(HttpServletRequest.class));
+
+		assertThat(resp.getBody().getMsg())
+			.doesNotContain("uk_sys_user_username", "sys_user", "INSERT", "SQL", "duplicate", "alice", "PSQLException");
+		assertThat(resp.getBody().getData()).isNull();
+	}
+
+	@Test
+	@DisplayName("DuplicateKeyException 的子类同样按 400 处理")
+	void duplicateKeySubclass() {
+		class CustomDuplicate extends DuplicateKeyException {
+			CustomDuplicate() {
+				super("custom");
+			}
+		}
+
+		ResponseEntity<R<Void>> resp = handler.handleException(new CustomDuplicate(), mock(HttpServletRequest.class));
+
+		assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		assertThat(captured).isEmpty();
+	}
+
+	@Test
+	@DisplayName("其它完整性异常（非空、外键、超长等）仍是 500 并进错误日志")
+	void otherIntegrityViolationStays500() {
+		DataIntegrityViolationException notNull = new DataIntegrityViolationException("null value in column \"name\"");
+
+		ResponseEntity<R<Void>> resp = handler.handleException(notNull, mock(HttpServletRequest.class));
+
+		assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+		assertThat(captured).containsExactly(notNull);
+	}
+
+	@Test
+	@DisplayName("只认顶层异常：DuplicateKeyException 被包成别的异常的 cause 时仍按 500 处理")
+	void wrappedDuplicateKeyStays500() {
+		RuntimeException wrapped = new RuntimeException("包装", new DuplicateKeyException("dup"));
+
+		ResponseEntity<R<Void>> resp = handler.handleException(wrapped, mock(HttpServletRequest.class));
+
+		assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+		assertThat(captured).containsExactly(wrapped);
+	}
+
+	@Test
+	@DisplayName("按类名识别时，类名常量与 spring-tx 里的真实类一致（防改名后静默失效）")
+	void duplicateKeyClassNameMatchesSpring() {
+		assertThat(GlobalExceptionHandler.DUPLICATE_KEY_EXCEPTION).isEqualTo(DuplicateKeyException.class.getName());
+		assertThat(GlobalExceptionHandler.isDuplicateKey(new DuplicateKeyException("x"))).isTrue();
+		assertThat(GlobalExceptionHandler.isDuplicateKey(new DataIntegrityViolationException("x"))).isFalse();
 	}
 }

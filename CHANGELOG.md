@@ -7,6 +7,7 @@
 ### 变更
 
 - 许可证由 Apache-2.0 改为 MIT（见 `LICENSE`）。Maven Central 上已发布的 `0.1.0` 构件仍保留发布时声明的 Apache-2.0
+- `GlobalExceptionHandler`：唯一约束冲突（`org.springframework.dao.DuplicateKeyException` 及子类）从 500 改回 HTTP 400，响应体 `code` 为 400、`msg` 为「数据已存在，请勿重复提交」，不带 SQL 和约束名，也不再进错误日志监听。其它数据库异常仍是 500
 
 ## [0.1.0] - 2026-10-12
 

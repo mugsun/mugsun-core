@@ -95,9 +95,42 @@ public class GlobalExceptionHandler {
 			.body(R.fail(ResultCode.FAILURE, "请求方法不允许"));
 	}
 
-	/** 兜底 → 500（同步发布错误日志监听，监听器内部异步落库；监听异常不污染主响应） */
+	/** 唯一约束冲突的异常类名（spring-tx）。本模块不依赖 spring-tx，按类名识别，见 {@link #isDuplicateKey(Throwable)} */
+	static final String DUPLICATE_KEY_EXCEPTION = "org.springframework.dao.DuplicateKeyException";
+
+	/** 唯一约束冲突返回给客户端的固定文案：不带 SQL、约束名、字段值 */
+	static final String DUPLICATE_KEY_MESSAGE = "数据已存在，请勿重复提交";
+
+	/**
+	 * 唯一约束冲突 → 400「数据已存在」。业务侧没提前查重、撞上数据库唯一索引时，这是客户端重复提交，不是服务器故障：
+	 * 不进错误日志监听，响应只给固定文案（异常 message 里有 SQL、约束名和字段值，只写服务端日志）。
+	 */
+	ResponseEntity<R<Void>> handleDuplicateKey(Exception e, HttpServletRequest request) {
+		String uri = request != null ? request.getRequestURI() : null;
+		log.warn("唯一约束冲突，按 400 返回：uri={}，异常={}", uri, e.getClass().getName());
+		log.debug("唯一约束冲突详情", e);
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(R.fail(ResultCode.FAILURE, DUPLICATE_KEY_MESSAGE));
+	}
+
+	/**
+	 * 是否唯一约束冲突（含子类）。spring-tx 不在本模块依赖里：直接写 {@code @ExceptionHandler(DuplicateKeyException.class)}
+	 * 会编译失败（d5e25f1 即因此 CI 失败、随后被撤掉），引成必选依赖又会强加给不用数据库的应用，所以按类名沿继承链识别。
+	 */
+	static boolean isDuplicateKey(Throwable e) {
+		for (Class<?> c = e.getClass(); c != null; c = c.getSuperclass()) {
+			if (DUPLICATE_KEY_EXCEPTION.equals(c.getName())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** 兜底 → 500（同步发布错误日志监听，监听器内部异步落库；监听异常不污染主响应）。唯一约束冲突除外，见上 */
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<R<Void>> handleException(Exception e, HttpServletRequest request) {
+		if (isDuplicateKey(e)) {
+			return handleDuplicateKey(e, request);
+		}
 		log.error("系统未捕获异常", e);
 		errorLogListeners.orderedStream().forEach(listener -> {
 			try {

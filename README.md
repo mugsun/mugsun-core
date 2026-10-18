@@ -12,7 +12,7 @@
 ![JDK](https://img.shields.io/badge/JDK-21-blue)
 ![Spring%20Boot](https://img.shields.io/badge/Spring%20Boot-3.5.13-brightgreen)
 ![Maven%20Central](https://img.shields.io/maven-central/v/com.mugsun/mugsun-starter-web)
-![License](https://img.shields.io/badge/License-Apache%202.0-green)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
 ## 概述
 
@@ -21,7 +21,7 @@
 | 坐标 | `com.mugsun:mugsun-*:0.1.0`（已发布至 [Maven Central](https://repo1.maven.org/maven2/com/mugsun/)） |
 | 运行时 | JDK 21；Maven 3.9+ |
 | 父工程 | Spring Boot 3.5.13 |
-| 许可 | [Apache-2.0](./LICENSE) |
+| 许可 | [MIT](./LICENSE) |
 | 文档 | [docs.mugsun.com/core](https://docs.mugsun.com/core/) |
 
 技术组件（以当前 POM 为准）：MyBatis-Flex 1.11.8、Sa-Token 1.44.0、JetCache、Hutool Crypto / BouncyCastle（接口国密）、FastExcel 等，版本由 `mugsun-bom` 统一锁定。
@@ -117,4 +117,4 @@ mugsun-core/
 
 ## 许可
 
-[Apache-2.0](./LICENSE) · 版权见 [NOTICE](./NOTICE) · © 2026 北京定旭晨 / mugsun
+[MIT](./LICENSE) · 版权见 [NOTICE](./NOTICE) · © 2026 北京定旭晨 / mugsun

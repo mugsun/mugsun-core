@@ -12,7 +12,7 @@ This repository is the shared kernel of the mugsun platform. It publishes a BOM,
 ![JDK](https://img.shields.io/badge/JDK-21-blue)
 ![Spring%20Boot](https://img.shields.io/badge/Spring%20Boot-3.5.13-brightgreen)
 ![Maven%20Central](https://img.shields.io/maven-central/v/com.mugsun/mugsun-starter-web)
-![License](https://img.shields.io/badge/License-Apache%202.0-green)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
 ## Overview
 
@@ -21,7 +21,7 @@ This repository is the shared kernel of the mugsun platform. It publishes a BOM,
 | Coordinates | `com.mugsun:mugsun-*:0.1.0` (published on [Maven Central](https://repo1.maven.org/maven2/com/mugsun/)) |
 | Runtime | JDK 21; Maven 3.9+ |
 | Parent | Spring Boot 3.5.13 |
-| License | [Apache-2.0](./LICENSE) |
+| License | [MIT](./LICENSE) |
 | Docs | [docs.mugsun.com/en/core](https://docs.mugsun.com/en/core/) |
 
 Stack (per current POM): MyBatis-Flex 1.11.8, Sa-Token 1.44.0, JetCache, Hutool Crypto / BouncyCastle (API crypto), FastExcel, and related libraries — versions locked by `mugsun-bom`.
@@ -117,4 +117,4 @@ Open-source line: `boot` · `core` · `pc` · `track` · [mugsun-docs](https://g
 
 ## License
 
-[Apache-2.0](./LICENSE)
+[MIT](./LICENSE)

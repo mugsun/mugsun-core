@@ -36,9 +36,32 @@
 			<artifactId>mybatis-spring</artifactId>
 			<version>${mybatis-spring.version}</version>
 		</dependency>
+		<!-- 唯一约束冲突 → 400 的 @RestControllerAdvice 用；可选，非 Servlet Web 应用不装配（见 MugsunMybatisWebAutoConfiguration） -->
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-webmvc</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>jakarta.servlet</groupId>
+			<artifactId>jakarta.servlet-api</artifactId>
+			<optional>true</optional>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- 测试用：与 starter-web 的 GlobalExceptionHandler 同时装配，验证本模块的处理优先 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.mugsun</groupId>
+			<artifactId>mugsun-starter-web</artifactId>
+			<version>${mugsun.version}</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>

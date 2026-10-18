@@ -50,11 +50,5 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
-		<!-- 仅测试用：验证 DuplicateKeyException → 400（main 代码按类名识别，不依赖 spring-tx） -->
-		<dependency>
-			<groupId>org.springframework</groupId>
-			<artifactId>spring-tx</artifactId>
-			<scope>test</scope>
-		</dependency>
 	</dependencies>
 </project>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN 2.0//EN" "https://www.springframework.org/dtd/spring-beans-2.0.dtd">
+
+<!--
+	Spring 的 SQL 错误码补充表（classpath 根目录的 sql-error-codes.xml）。
+	SQLErrorCodesFactory 先读 spring-jdbc 自带的 org/springframework/jdbc/support/sql-error-codes.xml，
+	再读本文件，同名 bean 覆盖、新 bean 追加。所以这里只写 Spring 默认表里没有的数据库，
+	PostgreSQL、MySQL、Oracle 等仍用 Spring 默认（见 SqlErrorCodesTest）。
+	注意：classpath 根目录只会取一个 sql-error-codes.xml，应用自己也放一份时会遮住本文件，需要把下面的条目抄过去。
+-->
+<beans>
+
+	<!-- 达梦 DM8：-6602 违反唯一性约束，-6612、-6625 同属唯一键冲突。产品名取驱动 DatabaseMetaData.getDatabaseProductName() -->
+	<bean id="DM" class="org.springframework.jdbc.support.SQLErrorCodes">
+		<property name="databaseProductNames">
+			<list>
+				<value>DM DBMS</value>
+			</list>
+		</property>
+		<property name="duplicateKeyCodes">
+			<value>-6602,-6612,-6625</value>
+		</property>
+	</bean>
+
+</beans>

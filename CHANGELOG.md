@@ -7,7 +7,8 @@
 ### 变更
 
 - 许可证由 Apache-2.0 改为 MIT（见 `LICENSE`）。Maven Central 上已发布的 `0.1.0` 构件仍保留发布时声明的 Apache-2.0
-- `GlobalExceptionHandler`：唯一约束冲突（`org.springframework.dao.DuplicateKeyException` 及子类）从 500 改回 HTTP 400，响应体 `code` 为 400、`msg` 为「数据已存在，请勿重复提交」，不带 SQL 和约束名，也不再进错误日志监听。其它数据库异常仍是 500
+- 唯一约束冲突（`org.springframework.dao.DuplicateKeyException` 及子类）的 HTTP 状态从 500 改为 400：响应体 `code` 为 400、`msg` 为「数据已存在，请勿重复提交」，不带 SQL、约束名和字段值。这类错误不再经过 `GlobalExceptionHandler` 的兜底 500，也就不再发布 `ErrorLogListener`，不再写入错误日志表（boot 的 `sys_error_log`），只在服务端记一条 WARN（异常类名、SQLState、厂商错误码）。处理放在 `mugsun-starter-mybatis` 的 `DuplicateKeyExceptionHandler`（最高优先级，仅 Servlet Web 应用装配），只引 `mugsun-starter-web` 不引持久层的应用不受影响。其它数据库异常仍是 500
+- `mugsun-starter-mybatis` 新增 classpath 根目录的 `sql-error-codes.xml`，补上达梦（`DM DBMS`）的唯一键错误码 -6602、-6612、-6625，达梦的唯一约束冲突也会翻译成 `DuplicateKeyException`。应用自己在 classpath 根目录放了 `sql-error-codes.xml` 时会遮住这份，需要把达梦条目抄过去
 
 ## [0.1.0] - 2026-10-12
 

@@ -54,7 +54,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # 全历史扫描；gitleaks 钉版本并校验 sha256；--redact 不打印密钥值
+      # 扫当前 ref 的全部祖先（--log-opts=HEAD，不扫其他远程分支）；gitleaks 钉版本并校验 sha256；--redact 不打印密钥值
       - name: gitleaks (full history)
         env:
           GITLEAKS_VERSION: 8.30.1
@@ -65,7 +65,7 @@ jobs:
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$f"
           echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$f" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/$f" -C "$RUNNER_TEMP" gitleaks
-          "$RUNNER_TEMP/gitleaks" git . --config .gitleaks.toml --redact --no-banner --verbose
+          "$RUNNER_TEMP/gitleaks" git . --log-opts=HEAD --config .gitleaks.toml --redact --no-banner --verbose
 
   build:
     name: Build

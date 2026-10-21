@@ -13,3 +13,9 @@ commits = [
   "b95a865d207914715f70c2101ed1761f36f42726",
   "ea4a2b00da9540cea447fa6f0ab0f3506f394ef6",
 ]
+
+[[allowlists]]
+# 公开的 API 加解密测试向量，不是真实密钥；只放行这一个精确路径，不关规则。
+# 为 fix/crypto-no-builtin-key 将来合入 main 提前准备（generic-api-key）。
+description = "公开测试向量 api-crypto-vectors.json，非真实密钥（generic-api-key）"
+paths = ['''^mugsun-starter-web/src/test/resources/crypto/api-crypto-vectors\.json$''']

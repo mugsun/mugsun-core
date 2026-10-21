@@ -82,4 +82,10 @@ python3 scripts/ci/check-workflows.py .github/workflows
 - 合入 main 后，作者自己删掉远端分支（`git push origin --delete <分支>`）。
 - 接口加密公开测试向量在 `mugsun-starter-web/src/test/resources/crypto/api-crypto-vectors.json`，`.gitleaks.toml` 要路径、精确值和单条规则（generic-api-key）同时匹配才放行；`.gitleaks.toml` 的任何改动都要安全官审查后再合。
 - **只有分支最新的 commit 已经在分支上跑过同名必需检查、并且全绿，才可以快进推入 main。推送前用 `gh run list --commit <sha>` 自己确认。不要 force push。**
+- 推 main 前的防误推（同步清单 3.20）：
+  1. 先核对这个完整 SHA 已经审过（审查结论里写的就是它），并且 `gh run list --commit <完整SHA>` 显示同名检查全绿；短 SHA 查到空不算核对。
+  2. 推送一律写全 refspec：`git push origin <sha>:refs/heads/<分支>`，不用裸 `git push`、`HEAD` 或依赖 upstream 跟踪。
+  3. 还没审的本地提交，不放在跟踪 main（upstream 为 origin/main）的分支上。
+  4. 改动 `.github/` 下任何文件的提交，必须先有安全官签字，才能进 main。
+  5. 一个 worktree 只给一条工作线用，另开的工作线一律新建自己的 worktree；推送前用 `git rev-parse HEAD` 对照审过的 SHA。被打断的 push 先用 `git ls-remote` 和 `ps` 确认没有在后台跑完，再做下一步。
 - 改 `.github/workflows/`、BOM 依赖版本或加解密实现属于敏感改动，需安全审查。

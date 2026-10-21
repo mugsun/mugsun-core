@@ -6,6 +6,8 @@
 
 ### 不兼容变更
 
+- 开发版本改为 `0.2.0-SNAPSHOT`；mugsun-boot 依赖这个版本
+
 - 接口加密去掉内置密钥，改为 SM4-GCM；升级后必须配置 `MUGSUN_API_KEY`
   - 未配置时默认拒绝启动；仅显式 `allow-ephemeral-keys=true` 用临时密钥
   - 密钥须为 32 位 hex 或带填充的 16 字节标准 base64，不补零不截断
@@ -13,6 +15,7 @@
   - `strict-keys` 保留，接口加密侧只作否决：为 true 时拒绝临时密钥
   - 解密失败统一返回同一错误；只是传输混淆，不能代替 TLS
   - 不防重放、不绑定接口（暂无 AAD）
+  - `encrypt(null)` 返回 null，不再抛空指针
 
 ### CI
 

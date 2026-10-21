@@ -90,6 +90,29 @@ class ApiCryptoServiceTest {
 	}
 
 	@Test
+	@DisplayName("启动组合：strict=true 缺密钥拒绝（不论 allow）；strict=false 且 allow=false 缺密钥也拒绝")
+	void startupCombinations() {
+		for (boolean allow : new boolean[] {false, true}) {
+			assertThatThrownBy(newService("", true, allow)::init).as("strict=true allow=%s", allow)
+				.isInstanceOf(IllegalStateException.class).hasMessageContaining("MUGSUN_API_KEY");
+		}
+		assertThatThrownBy(newService("", false, false)::init).as("strict=false allow=false")
+			.isInstanceOf(IllegalStateException.class).hasMessageContaining("allow-ephemeral-keys");
+		// 配了合法密钥时 strict/allow 怎么组合都能启动
+		for (boolean strict : new boolean[] {false, true}) {
+			for (boolean allow : new boolean[] {false, true}) {
+				newService(HEX_KEY, strict, allow).init();
+			}
+		}
+	}
+
+	@Test
+	@DisplayName("encrypt(null) 返回 null，不抛空指针")
+	void encryptNullReturnsNull() {
+		assertThat(service.encrypt(null)).isNull();
+	}
+
+	@Test
 	@DisplayName("strict-keys 开启时，即使 allow-ephemeral-keys=true 也拒绝启动")
 	void strictBeatsEphemeral() {
 		assertThatThrownBy(newService("  ", true, true)::init).isInstanceOf(IllegalStateException.class);

@@ -77,7 +77,7 @@ public class ApiCryptoService {
 	}
 
 	/**
-	 * 解析密钥（与 mugsun-pc 共用测试向量 crypto/api-key-vectors.json）：
+	 * 解析密钥（与 mugsun-pc 共用测试向量 crypto/api-crypto-vectors.json）：
 	 * 先去掉前后空白；只接受 32 位 hex（大小写均可），或标准字母表、带填充、
 	 * 规范编码（解码后重新编码与输入一致）的 base64，且解码后正好 16 字节。其他一律拒绝。
 	 */
@@ -96,8 +96,11 @@ public class ApiCryptoService {
 		throw new IllegalStateException("MUGSUN_API_KEY 格式不对：须为 32 位 hex，或带填充的标准 base64 且解码后正好 16 字节，拒绝启动");
 	}
 
-	/** 明文 → base64(IV ‖ 密文 ‖ 标签)；每次 CSPRNG 随机 12 字节 IV */
+	/** 明文 → base64(IV ‖ 密文 ‖ 标签)；每次 CSPRNG 随机 12 字节 IV；null 原样返回 null */
 	public String encrypt(String plain) {
+		if (plain == null) {
+			return null;
+		}
 		byte[] iv = new byte[IV_BYTES];
 		secureRandom.nextBytes(iv);
 		return encryptWithIv(plain, iv);

@@ -1,0 +1,208 @@
+{
+  "description": "接口加密 SM4-GCM 的跨端测试数据（mugsun-core 与 mugsun-pc 共用）。全部是测试数据，不是任何部署的密钥。",
+  "format": {
+    "algorithm": "SM4-GCM",
+    "ivBytes": 12,
+    "tagBytes": 16,
+    "aad": "无",
+    "layout": "IV || 密文 || tag",
+    "encoding": "标准 base64（字母表含 + /），必须带填充；解码后重新编码须与输入一致",
+    "plaintext": "UTF-8",
+    "envelope": "请求体 {\"encryptData\": \"<base64>\"}，响应同字段"
+  },
+  "keyRules": [
+    "先去掉前后空白",
+    "32 位 hex（大小写均可）",
+    "或标准字母表、带填充的 base64，解码后正好 16 字节，且重新编码后与输入一致",
+    "其他一律拒绝，不截断不补零"
+  ],
+  "validKeys": [
+    {
+      "name": "hex 小写",
+      "input": "000102030405060708090a0b0c0d0e0f",
+      "bytesHex": "000102030405060708090a0b0c0d0e0f"
+    },
+    {
+      "name": "hex 大小写混合",
+      "input": "00112233445566778899aabbccddeeFF",
+      "bytesHex": "00112233445566778899aabbccddeeff"
+    },
+    {
+      "name": "hex 前后空白会去掉",
+      "input": "  f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff\t\n",
+      "bytesHex": "f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
+    },
+    {
+      "name": "base64 标准字母表带填充",
+      "input": "AAcOFRwjKjE4P0ZNVFtiaQ==",
+      "bytesHex": "00070e151c232a31383f464d545b6269"
+    },
+    {
+      "name": "base64 前后空白会去掉",
+      "input": " AAcOFRwjKjE4P0ZNVFtiaQ== ",
+      "bytesHex": "00070e151c232a31383f464d545b6269"
+    },
+    {
+      "name": "base64 含 + 和 /",
+      "input": "+/+/+/+/+/+/+/+/+/+//g==",
+      "bytesHex": "fbffbffbffbffbffbffbffbffbffbffe"
+    }
+  ],
+  "invalidKeys": [
+    {
+      "name": "缺失",
+      "input": "",
+      "error": "missing"
+    },
+    {
+      "name": "只有空白",
+      "input": "   ",
+      "error": "missing"
+    },
+    {
+      "name": "旧格式 16 个可打印字符",
+      "input": "abcdefghijklmnop",
+      "error": "invalid"
+    },
+    {
+      "name": "hex 31 位",
+      "input": "0000000000000000000000000000000",
+      "error": "invalid"
+    },
+    {
+      "name": "hex 33 位",
+      "input": "000000000000000000000000000000000",
+      "error": "invalid"
+    },
+    {
+      "name": "非 hex 字符 32 位",
+      "input": "gggggggggggggggggggggggggggggggg",
+      "error": "invalid"
+    },
+    {
+      "name": "hex 中间有空白",
+      "input": "0001020304050607 08090a0b0c0d0e0f",
+      "error": "invalid"
+    },
+    {
+      "name": "base64 解码 15 字节",
+      "input": "eHh4eHh4eHh4eHh4eHh4",
+      "error": "invalid"
+    },
+    {
+      "name": "base64 解码 24 字节",
+      "input": "eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4",
+      "error": "invalid"
+    },
+    {
+      "name": "base64 不带填充",
+      "input": "AAcOFRwjKjE4P0ZNVFtiaQ",
+      "error": "invalid"
+    },
+    {
+      "name": "base64 url-safe 写法",
+      "input": "-_-_-_-_-_-_-_-_-_-__g==",
+      "error": "invalid"
+    },
+    {
+      "name": "base64 中间有空白",
+      "input": "AAcOFRwj KjE4P0ZNVFtiaQ==",
+      "error": "invalid"
+    },
+    {
+      "name": "base64 非规范编码（末位多余比特不为 0）",
+      "input": "AAcOFRwjKjE4P0ZNVFtiaR==",
+      "error": "invalid"
+    },
+    {
+      "name": "base64 多余填充",
+      "input": "AAcOFRwjKjE4P0ZNVFtiaQ===",
+      "error": "invalid"
+    },
+    {
+      "name": "非法字符",
+      "input": "!!!!",
+      "error": "invalid"
+    }
+  ],
+  "encryptVectors": [
+    {
+      "keyHex": "000102030405060708090a0b0c0d0e0f",
+      "ivHex": "000000000000000000000000",
+      "plaintext": "",
+      "ciphertext": "AAAAAAAAAAAAAAAA+tXy0zpkS/3nnpr2TKrb7A=="
+    },
+    {
+      "keyHex": "000102030405060708090a0b0c0d0e0f",
+      "ivHex": "0f0e0d0c0b0a090807060504",
+      "plaintext": "hello",
+      "ciphertext": "Dw4NDAsKCQgHBgUEzkKYElZ0M+IWm9bASiURdkRuIbHg"
+    },
+    {
+      "keyHex": "00112233445566778899aabbccddeeff",
+      "ivHex": "a1a2a3a4a5a6a7a8a9aaabac",
+      "plaintext": "{\"userName\":\"张三\",\"pwd\":\"P@ss w0rd/+=\"}",
+      "ciphertext": "oaKjpKWmp6ipqqus+yXrnYh/dYTMKrJtQBD6wEebvL5h2IGrdAFWoO4E3uw7Cjans1JWBEbszzqFLAvBGLZM6FQgWWgVqQ=="
+    },
+    {
+      "keyHex": "00112233445566778899aabbccddeeff",
+      "ivHex": "101112131415161718191a1b",
+      "plaintext": "0123456789abcdef0123456789abcdef!",
+      "ciphertext": "EBESExQVFhcYGRob8uUXrMWqqxUW8P3t9RnQlkACV2888mJ7u882vpqhSSetapFW11eNCVvY5c3sUHH8AA=="
+    }
+  ],
+  "invalidCiphertexts": {
+    "keyHex": "00112233445566778899aabbccddeeff",
+    "note": "以下密文都必须解密失败，且错误信息相同",
+    "cases": [
+      {
+        "name": "IV 被改",
+        "ciphertext": "oKKjpKWmp6ipqqus+yXrnYh/dYTMKrJtQBD6wEebvL5h2IGrdAFWoO4E3uw7Cjans1JWBEbszzqFLAvBGLZM6FQgWWgVqQ=="
+      },
+      {
+        "name": "密文被改",
+        "ciphertext": "oaKjpKWmp6ipqqus+yXrnYh/dYTNKrJtQBD6wEebvL5h2IGrdAFWoO4E3uw7Cjans1JWBEbszzqFLAvBGLZM6FQgWWgVqQ=="
+      },
+      {
+        "name": "tag 被改",
+        "ciphertext": "oaKjpKWmp6ipqqus+yXrnYh/dYTMKrJtQBD6wEebvL5h2IGrdAFWoO4E3uw7Cjans1JWBEbszzqFLAvBGLZM6FQgWWgVqA=="
+      },
+      {
+        "name": "截掉最后 1 字节",
+        "ciphertext": "oaKjpKWmp6ipqqus+yXrnYh/dYTMKrJtQBD6wEebvL5h2IGrdAFWoO4E3uw7Cjans1JWBEbszzqFLAvBGLZM6FQgWWgV"
+      },
+      {
+        "name": "长度不足（少于 IV+tag）",
+        "ciphertext": "oaKjpKWmp6ipqqus+yXrnYh/dYTMKrJtQBD6"
+      },
+      {
+        "name": "不带填充",
+        "ciphertext": "oaKjpKWmp6ipqqus+yXrnYh/dYTMKrJtQBD6wEebvL5h2IGrdAFWoO4E3uw7Cjans1JWBEbszzqFLAvBGLZM6FQgWWgVqQ"
+      },
+      {
+        "name": "url-safe 写法",
+        "ciphertext": "oaKjpKWmp6ipqqus-yXrnYh_dYTMKrJtQBD6wEebvL5h2IGrdAFWoO4E3uw7Cjans1JWBEbszzqFLAvBGLZM6FQgWWgVqQ=="
+      },
+      {
+        "name": "非规范编码（填充前多余比特不为 0）",
+        "ciphertext": "oaKjpKWmp6ipqqus+yXrnYh/dYTMKrJtQBD6wEebvL5h2IGrdAFWoO4E3uw7Cjans1JWBEbszzqFLAvBGLZM6FQgWWgVqR=="
+      },
+      {
+        "name": "中间有空白",
+        "ciphertext": "oaKjpKWm p6ipqqus+yXrnYh/dYTMKrJtQBD6wEebvL5h2IGrdAFWoO4E3uw7Cjans1JWBEbszzqFLAvBGLZM6FQgWWgVqQ=="
+      },
+      {
+        "name": "hex 写法（旧格式）",
+        "ciphertext": "a1a2a3a4a5a6a7a8a9aaabacfb25eb9d887f7584cc2ab26d4010fac0479bbcbe61d881ab740156a0ee04deec3b0a36a7b352560446eccf3a852c0bc118b64ce85420596815a9"
+      },
+      {
+        "name": "多余填充",
+        "ciphertext": "oaKjpKWmp6ipqqus+yXrnYh/dYTMKrJtQBD6wEebvL5h2IGrdAFWoO4E3uw7Cjans1JWBEbszzqFLAvBGLZM6FQgWWgVqQ==="
+      },
+      {
+        "name": "空串",
+        "ciphertext": ""
+      }
+    ]
+  }
+}

@@ -4,7 +4,7 @@
 
 ## 仓库是什么
 
-mugsun 的基础库：BOM 加若干 starter，发布到 Maven Central（版本见根 `pom.xml`）。**业务代码不放这里**，放在 mugsun-boot。
+mugsun 的基础库：BOM 加若干 starter，发布到 Maven Central（版本见根 `pom.xml`）。当前开发版 `0.2.0-SNAPSHOT` 不在 Central，mugsun-boot 依赖它，要先在本仓 `mvn -B install` 装到本地。**业务代码不放这里**，放在 mugsun-boot。
 
 | 模块 | 包 | 内容 |
 | --- | --- | --- |
@@ -78,6 +78,7 @@ python3 scripts/ci/check-workflows.py .github/workflows
 - Conventional Commits，主题中文，不超过 50 字，不用 emoji；详见 `.github/COMMIT_CONVENTION.md`。
 - `CHANGELOG.md` 写在 `## [Unreleased]` 下，**每行不超过 80 字**。
 - 不用 `git stash`；切换工作用 `git worktree`。
-- 提交的作者和提交者一律用 `Mugsun <100790155+mugsun@users.noreply.github.com>`：只在仓库级配置（`git config --local`）里设，或用 `git -c user.name=… -c user.email=…` 传入，不改全局配置。已推送的历史不改；未推送的提交推送前用 `git rebase --exec 'git commit --amend --no-edit --reset-author'` 重做，并确认提交者也是 noreply。
+- 提交的作者和提交者一律用 `Mugsun <100790155+mugsun@users.noreply.github.com>`：只在仓库级配置（`git config --local`）里设，或用 `git -c user.name=… -c user.email=…` 传入，不改全局配置。已推送的历史不改；未推送的提交推送前用 `git rebase --exec 'git commit --amend --no-edit --reset-author'` 重做，并确认提交者也是 noreply。这条 rebase 只用于未推送的提交；已推送的提交改身份要从 origin/main 新开分支 cherry-pick 后 `commit --amend --reset-author`，旧分支不动。
+- 接口加密公开测试向量在 `mugsun-starter-web/src/test/resources/crypto/api-crypto-vectors.json`，`.gitleaks.toml` 按路径放行；`.gitleaks.toml` 的任何改动都要安全官审查后再合。
 - **只有分支最新的 commit 已经在分支上跑过同名必需检查、并且全绿，才可以快进推入 main。推送前用 `gh run list --commit <sha>` 自己确认。不要 force push。**
 - 改 `.github/workflows/`、BOM 依赖版本或加解密实现属于敏感改动，需安全审查。

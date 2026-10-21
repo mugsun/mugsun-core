@@ -141,7 +141,7 @@ class ApiCryptoServiceTest {
 		}
 		assertThat(root.path("encryptVectors").size()).isGreaterThan(0);
 		for (var v : root.path("encryptVectors")) {
-			ApiCryptoService s = newService(v.path("keyHex").asText(), true, false);
+			ApiCryptoService s = newService(v.path("sm4Hex").asText(), true, false);
 			s.init();
 			String plain = v.path("plaintext").asText();
 			assertThat(s.encryptWithIv(plain, HexFormat.of().parseHex(v.path("ivHex").asText())))
@@ -149,7 +149,7 @@ class ApiCryptoServiceTest {
 			assertThat(s.decrypt(v.path("ciphertext").asText())).isEqualTo(plain);
 		}
 		var inv = root.path("invalidCiphertexts");
-		ApiCryptoService s = newService(inv.path("keyHex").asText(), true, false);
+		ApiCryptoService s = newService(inv.path("sm4Hex").asText(), true, false);
 		s.init();
 		assertThat(inv.path("cases").size()).isGreaterThan(0);
 		for (var v : inv.path("cases")) {

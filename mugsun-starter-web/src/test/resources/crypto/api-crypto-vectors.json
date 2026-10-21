@@ -127,32 +127,32 @@
   ],
   "encryptVectors": [
     {
-      "keyHex": "000102030405060708090a0b0c0d0e0f",
+      "sm4Hex": "000102030405060708090a0b0c0d0e0f",
       "ivHex": "000000000000000000000000",
       "plaintext": "",
       "ciphertext": "AAAAAAAAAAAAAAAA+tXy0zpkS/3nnpr2TKrb7A=="
     },
     {
-      "keyHex": "000102030405060708090a0b0c0d0e0f",
+      "sm4Hex": "000102030405060708090a0b0c0d0e0f",
       "ivHex": "0f0e0d0c0b0a090807060504",
       "plaintext": "hello",
       "ciphertext": "Dw4NDAsKCQgHBgUEzkKYElZ0M+IWm9bASiURdkRuIbHg"
     },
     {
-      "keyHex": "00112233445566778899aabbccddeeff",
+      "sm4Hex": "00112233445566778899aabbccddeeff",
       "ivHex": "a1a2a3a4a5a6a7a8a9aaabac",
       "plaintext": "{\"userName\":\"张三\",\"pwd\":\"P@ss w0rd/+=\"}",
       "ciphertext": "oaKjpKWmp6ipqqus+yXrnYh/dYTMKrJtQBD6wEebvL5h2IGrdAFWoO4E3uw7Cjans1JWBEbszzqFLAvBGLZM6FQgWWgVqQ=="
     },
     {
-      "keyHex": "00112233445566778899aabbccddeeff",
+      "sm4Hex": "00112233445566778899aabbccddeeff",
       "ivHex": "101112131415161718191a1b",
       "plaintext": "0123456789abcdef0123456789abcdef!",
       "ciphertext": "EBESExQVFhcYGRob8uUXrMWqqxUW8P3t9RnQlkACV2888mJ7u882vpqhSSetapFW11eNCVvY5c3sUHH8AA=="
     }
   ],
   "invalidCiphertexts": {
-    "keyHex": "00112233445566778899aabbccddeeff",
+    "sm4Hex": "00112233445566778899aabbccddeeff",
     "note": "以下密文都必须解密失败，且错误信息相同",
     "cases": [
       {

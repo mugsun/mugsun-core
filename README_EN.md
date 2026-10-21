@@ -75,10 +75,12 @@ Publishing to Central: create a GitHub Release on this repository, or run the **
 
 **This is transport obfuscation only and does not replace TLS.** The symmetric key is shipped to the browser, so it is not secret from clients.
 
+No replay protection and no endpoint binding: ciphertext is not bound to method or path, so it can be replayed or moved to another encrypted endpoint.
+
 | Property | Default | Notes |
 |---|---|---|
 | `mugsun.crypto.api-key` | none | env `MUGSUN_API_KEY`, required |
-| `mugsun.crypto.strict-keys` | `false` | existing switch; when true even ephemeral keys are refused (deprecated for API crypto) |
+| `mugsun.crypto.strict-keys` | `false` | existing switch; for API crypto it only vetoes: when true even ephemeral keys are refused |
 | `mugsun.crypto.allow-ephemeral-keys` | `false` | generate a per-process key when missing |
 
 - After upgrading you must set `MUGSUN_API_KEY`, otherwise the application refuses to start.

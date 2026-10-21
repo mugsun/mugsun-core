@@ -119,6 +119,29 @@ class ApiCryptoServiceTest {
 	}
 
 	@Test
+	@DisplayName("跨端测试向量（与 mugsun-pc 共用）：合法密钥解析出相同字节，非法密钥一律拒绝")
+	void sharedKeyVectors() throws IOException {
+		com.fasterxml.jackson.databind.JsonNode root;
+		try (var in = getClass().getResourceAsStream("/crypto/api-key-vectors.json")) {
+			root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(in);
+		}
+		assertThat(root.path("valid").size()).isGreaterThan(0);
+		for (var v : root.path("valid")) {
+			assertThat(HexFormat.of().formatHex(ApiCryptoService.parseKey(v.path("input").asText())))
+				.as(v.path("name").asText()).isEqualTo(v.path("bytesHex").asText());
+			ApiCryptoService s = newService(v.path("input").asText(), true, false);
+			s.init();
+		}
+		assertThat(root.path("invalid").size()).isGreaterThan(0);
+		for (var v : root.path("invalid")) {
+			assertThatThrownBy(() -> ApiCryptoService.parseKey(v.path("input").asText()))
+				.as(v.path("name").asText()).isInstanceOf(IllegalStateException.class);
+			assertThatThrownBy(newService(v.path("input").asText(), true, false)::init)
+				.as(v.path("name").asText()).isInstanceOf(IllegalStateException.class);
+		}
+	}
+
+	@Test
 	@DisplayName("密文被篡改（IV、正文、标签任一位）或换密钥：解密失败，错误信息统一")
 	void tamperingFailsWithUniformError() {
 		String cipher = service.encrypt("{\"amount\":100}");

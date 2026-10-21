@@ -15,6 +15,7 @@ import java.security.GeneralSecurityException;
 import java.security.Provider;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.regex.Pattern;
 
 /**
@@ -36,6 +37,7 @@ public class ApiCryptoService {
 	private static final int IV_HEX = IV_BYTES * 2;
 	private static final int MIN_CIPHER_HEX = IV_HEX + TAG_BITS / 4;
 	private static final Pattern HEX_KEY = Pattern.compile("^[0-9a-fA-F]{32}$");
+	private static final Pattern B64_KEY = Pattern.compile("^[A-Za-z0-9+/]+={0,2}$");
 	private static final Pattern HEX_BODY = Pattern.compile("^[0-9a-fA-F]+$");
 	/** 解密失败一律同一个错误，不区分 IV、标签、格式，避免 oracle */
 	static final String DECRYPT_FAILED = "接口密文无效";
@@ -69,23 +71,33 @@ public class ApiCryptoService {
 				+ "重启后密钥会变，多实例之间不互通，仅限本地开发/测试");
 			return;
 		}
-		key = new SecretKeySpec(parseKey(apiKey.trim()), "SM4");
+		key = new SecretKeySpec(parseKey(apiKey), "SM4");
 	}
 
-	static byte[] parseKey(String s) {
+	/**
+	 * 解析密钥（与 mugsun-pc 共用测试向量 crypto/api-key-vectors.json）：
+	 * 先去掉前后空白；只接受 32 位 hex（大小写均可），或标准字母表、带填充、
+	 * 规范编码（解码后重新编码与输入一致）的 base64，且解码后正好 16 字节。其他一律拒绝。
+	 */
+	static byte[] parseKey(String raw) {
+		String s = raw == null ? "" : raw.strip();
+		if (s.isEmpty()) {
+			throw new IllegalStateException("未配置接口加密密钥 MUGSUN_API_KEY，拒绝启动");
+		}
 		if (HEX_KEY.matcher(s).matches()) {
-			return HexUtil.decodeHex(s);
+			return HexFormat.of().parseHex(s);
 		}
-		byte[] b;
-		try {
-			b = Base64.getDecoder().decode(s);
-		} catch (IllegalArgumentException e) {
-			throw new IllegalStateException("MUGSUN_API_KEY 格式不对：须为 32 位 hex 或 base64（解码后 16 字节），拒绝启动");
+		if (B64_KEY.matcher(s).matches() && s.length() % 4 == 0) {
+			try {
+				byte[] b = Base64.getDecoder().decode(s);
+				if (b.length == KEY_BYTES && Base64.getEncoder().encodeToString(b).equals(s)) {
+					return b;
+				}
+			} catch (IllegalArgumentException ignored) {
+				// 落到下面统一报错
+			}
 		}
-		if (b.length != KEY_BYTES) {
-			throw new IllegalStateException("MUGSUN_API_KEY 长度不对：解码后须正好 16 字节，实际 " + b.length + "，拒绝启动");
-		}
-		return b;
+		throw new IllegalStateException("MUGSUN_API_KEY 格式不对：须为 32 位 hex，或带填充的标准 base64 且解码后正好 16 字节，拒绝启动");
 	}
 
 	/** 明文 → Hex(IV) ‖ Hex(密文 ‖ 标签)；每次 CSPRNG 随机 12 字节 IV */

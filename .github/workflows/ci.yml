@@ -55,7 +55,7 @@ jobs:
           persist-credentials: false
 
       # 扫当前 ref 的全部祖先（--log-opts=HEAD，不扫其他远程分支）；gitleaks 钉版本并校验 sha256；--redact 不打印密钥值
-      - name: gitleaks (full history)
+      - name: gitleaks (current ref history)
         env:
           GITLEAKS_VERSION: 8.30.1
           GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb

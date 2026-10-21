@@ -15,7 +15,15 @@ commits = [
 ]
 
 [[allowlists]]
-# 公开的 API 加解密测试向量，不是真实密钥；只放行这一个精确路径，不关规则。
+# K1 跨端互通的公开测试向量（api-crypto-vectors.json），不是真实密钥。
+# 禁止放入真实密钥：path 与向量值同时匹配才放行（AND），同文件里的其他值仍会报。
+# 值取自已发布向量本身，整串精确匹配；新增向量须安全官审后追加。
 # 为 fix/crypto-no-builtin-key 将来合入 main 提前准备（generic-api-key）。
-description = "公开测试向量 api-crypto-vectors.json，非真实密钥（generic-api-key）"
+description = "K1 公开测试向量 api-crypto-vectors.json，非真实密钥（generic-api-key）"
+targetRules = ["generic-api-key"]
+condition = "AND"
 paths = ['''^mugsun-starter-web/src/test/resources/crypto/api-crypto-vectors\.json$''']
+regexTarget = "secret"
+regexes = [
+  '''^00112233445566778899aabbccddeeff$''',
+]

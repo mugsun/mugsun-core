@@ -113,6 +113,13 @@ class ApiCryptoServiceTest {
 	}
 
 	@Test
+	@DisplayName("decrypt(null) 返回 null，与 encrypt(null) 对称；空串仍按非法密文报错")
+	void decryptNullReturnsNull() {
+		assertThat(service.decrypt(null)).isNull();
+		assertThatThrownBy(() -> service.decrypt("")).isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
 	@DisplayName("strict-keys 开启时，即使 allow-ephemeral-keys=true 也拒绝启动")
 	void strictBeatsEphemeral() {
 		assertThatThrownBy(newService("  ", true, true)::init).isInstanceOf(IllegalStateException.class);
@@ -195,7 +202,6 @@ class ApiCryptoServiceTest {
 			assertThatThrownBy(() -> service.decrypt(c)).as(c).isInstanceOf(IllegalArgumentException.class)
 				.hasMessage(ApiCryptoService.DECRYPT_FAILED);
 		}
-		assertThatThrownBy(() -> service.decrypt(null)).hasMessage(ApiCryptoService.DECRYPT_FAILED);
 		assertThatThrownBy(() -> other.decrypt(cipher)).hasMessage(ApiCryptoService.DECRYPT_FAILED);
 	}
 

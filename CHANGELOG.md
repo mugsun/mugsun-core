@@ -15,7 +15,8 @@
   - `strict-keys` 保留，接口加密侧只作否决：为 true 时拒绝临时密钥
   - 解密失败统一返回同一错误；只是传输混淆，不能代替 TLS
   - 不防重放、不绑定接口（暂无 AAD）
-  - `encrypt(null)` 返回 null，不再抛空指针
+  - `encrypt(null)`、`decrypt(null)` 都返回 null，不再抛异常
+  - 跨端向量补 4 条：U+3000、U+2028 被 strip 去掉，NBSP、BOM 不去判非法
 
 ### CI
 

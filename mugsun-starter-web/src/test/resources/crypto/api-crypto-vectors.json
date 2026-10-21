@@ -46,6 +46,16 @@
       "name": "base64 含 + 和 /",
       "input": "+/+/+/+/+/+/+/+/+/+//g==",
       "bytesHex": "fbffbffbffbffbffbffbffbffbffbffe"
+    },
+    {
+      "name": "前后带全角空格 U+3000（strip 去掉）",
+      "input": "　AAcOFRwjKjE4P0ZNVFtiaQ==　",
+      "bytesHex": "00070e151c232a31383f464d545b6269"
+    },
+    {
+      "name": "前后带行分隔符 U+2028（strip 去掉）",
+      "input": " AAcOFRwjKjE4P0ZNVFtiaQ== ",
+      "bytesHex": "00070e151c232a31383f464d545b6269"
     }
   ],
   "invalidKeys": [
@@ -122,6 +132,16 @@
     {
       "name": "非法字符",
       "input": "!!!!",
+      "error": "invalid"
+    },
+    {
+      "name": "前后带不换行空格 U+00A0（strip 不去）",
+      "input": " AAcOFRwjKjE4P0ZNVFtiaQ== ",
+      "error": "invalid"
+    },
+    {
+      "name": "前后带 BOM U+FEFF（strip 不去）",
+      "input": "﻿AAcOFRwjKjE4P0ZNVFtiaQ==﻿",
       "error": "invalid"
     }
   ],

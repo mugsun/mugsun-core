@@ -121,8 +121,11 @@ public class ApiCryptoService {
 		}
 	}
 
-	/** base64(IV ‖ 密文 ‖ 标签) → 明文；格式错误、被篡改、密钥不对都抛同一个错误 */
+	/** base64(IV ‖ 密文 ‖ 标签) → 明文；null 原样返回 null（与 encrypt 对称）；格式错误、被篡改、密钥不对都抛同一个错误 */
 	public String decrypt(String cipher) {
+		if (cipher == null) {
+			return null;
+		}
 		byte[] raw = decodeCanonicalBase64(cipher);
 		if (raw == null || raw.length < IV_BYTES + TAG_BITS / 8) {
 			throw new IllegalArgumentException(DECRYPT_FAILED);

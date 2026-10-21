@@ -69,6 +69,29 @@ mvn clean install -DskipTests
 
 发布至 Central：对本仓库打 GitHub Release，或手动运行 Actions 工作流 **Publish to Maven Central**（`workflow_dispatch` / `release` published）。本地等价命令为 `mvn -Prelease clean deploy -DskipTests`（须配置 Portal 令牌与 GPG）。
 
+## 接口加密配置（不兼容变更）
+
+`mugsun-starter-web` 的 `@ApiDecrypt`/`@ApiEncrypt` 用 SM4-GCM，带完整性校验。
+
+**这只是传输混淆，不能代替 TLS。** 对称密钥要下发到浏览器，对客户端不保密。
+
+| 配置 | 默认 | 说明 |
+|---|---|---|
+| `mugsun.crypto.api-key` | 无 | 环境变量 `MUGSUN_API_KEY`，必填 |
+| `mugsun.crypto.strict-keys` | `true` | 开启时缺密钥一律拒绝启动 |
+| `mugsun.crypto.allow-ephemeral-keys` | `false` | 缺密钥时生成进程内临时密钥 |
+
+- 升级后必须配置 `MUGSUN_API_KEY`，否则应用拒绝启动。
+- 密钥须为 32 位 hex，或解码后正好 16 字节的 base64。
+- 格式不对就拒绝启动，不再补零或截断。
+- 生成示例：`openssl rand -hex 16`。
+- 临时密钥只用于本地开发和测试。
+- 需同时设 `allow-ephemeral-keys=true` 和 `strict-keys=false`。
+- 临时密钥重启后会变，多实例之间不互通。
+- 密文格式：`Hex(IV 12 字节) ‖ Hex(密文 ‖ GCM 标签 16 字节)`。
+- 旧的 CBC 密文不再兼容，前端要同步改成 SM4-GCM。
+- 解密失败一律返回同一个错误，不区分原因。
+
 ## 组成
 
 ```text

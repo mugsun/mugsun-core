@@ -69,6 +69,25 @@ mvn clean install -DskipTests
 
 Publishing to Central: create a GitHub Release on this repository, or run the **Publish to Maven Central** Actions workflow (`workflow_dispatch` / `release` published). Local equivalent: `mvn -Prelease clean deploy -DskipTests` (Portal token and GPG required).
 
+## API crypto configuration (breaking change)
+
+`@ApiDecrypt`/`@ApiEncrypt` in `mugsun-starter-web` use SM4-GCM with integrity protection.
+
+**This is transport obfuscation only and does not replace TLS.** The symmetric key is shipped to the browser, so it is not secret from clients.
+
+| Property | Default | Notes |
+|---|---|---|
+| `mugsun.crypto.api-key` | none | env `MUGSUN_API_KEY`, required |
+| `mugsun.crypto.strict-keys` | `true` | missing key always fails startup |
+| `mugsun.crypto.allow-ephemeral-keys` | `false` | generate a per-process key when missing |
+
+- After upgrading you must set `MUGSUN_API_KEY`, otherwise the application refuses to start.
+- The key must be 32 hex chars, or base64 that decodes to exactly 16 bytes. Anything else fails startup; no zero-padding or truncation.
+- Generate one with `openssl rand -hex 16`.
+- Ephemeral keys are for local dev and tests only and need both `allow-ephemeral-keys=true` and `strict-keys=false`. They change on restart and differ between instances.
+- Ciphertext format: `Hex(IV, 12 bytes) ‖ Hex(ciphertext ‖ GCM tag, 16 bytes)`. Old CBC ciphertext is no longer accepted; frontends must switch to SM4-GCM.
+- Every decryption failure returns the same error.
+
 ## Composition
 
 ```text

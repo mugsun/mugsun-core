@@ -5,129 +5,159 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Base64;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.stream.Stream;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * 接口国密 SM4（CBC + 随机 IV）：密文格式为 Hex(IV) ‖ Hex(密文)，须与前端 sm-crypto 互通。
- * 重点守住三件事：随机 IV 使密文非确定性、往返可解、非法密文被明确拒绝。
+ * 接口 SM4-GCM：密文 = Hex(IV_12) ‖ Hex(密文 ‖ 标签_16)。
+ * 守住：默认拒绝启动、显式临时密钥、密钥格式、篡改即失败且错误统一、源码无写死密钥。
  */
 class ApiCryptoServiceTest {
 
-	private static final int IV_HEX_LEN = 32;
+	/** 每次运行随机生成，源码里不放任何密钥字面量 */
+	private static final String HEX_KEY = randomHexKey();
+	private static final String OTHER_HEX_KEY = randomHexKey();
+
+	private static String randomHexKey() {
+		byte[] k = new byte[16];
+		new java.security.SecureRandom().nextBytes(k);
+		return HexFormat.of().formatHex(k);
+	}
 
 	private ApiCryptoService service;
 
-	private ApiCryptoService newService(String key, boolean strictKeys) {
+	private static ApiCryptoService newService(String key, boolean strict, boolean ephemeral) {
 		ApiCryptoService s = new ApiCryptoService();
 		ReflectionTestUtils.setField(s, "apiKey", key);
-		ReflectionTestUtils.setField(s, "strictKeys", strictKeys);
+		ReflectionTestUtils.setField(s, "strictKeys", strict);
+		ReflectionTestUtils.setField(s, "allowEphemeralKeys", ephemeral);
 		return s;
 	}
 
 	@BeforeEach
 	void setUp() {
-		service = newService("unit-test-key-16", false);
+		service = newService(HEX_KEY, true, false);
 		service.init();
 	}
 
 	@Test
-	@DisplayName("加密后可解回原文（含中文与符号）")
+	@DisplayName("往返：中文、符号、空串、长文本")
 	void roundTrip() {
 		String plain = "{\"userName\":\"张三\",\"pwd\":\"P@ss w0rd/+=\"}";
-
 		assertThat(service.decrypt(service.encrypt(plain))).isEqualTo(plain);
-	}
-
-	@Test
-	@DisplayName("空串与长文本均可往返")
-	void roundTripEdgeLengths() {
 		assertThat(service.decrypt(service.encrypt(""))).isEmpty();
-
 		String longText = "数据".repeat(5000);
 		assertThat(service.decrypt(service.encrypt(longText))).isEqualTo(longText);
 	}
 
 	@Test
-	@DisplayName("同一明文两次加密结果不同（随机 IV，消除 ECB 确定性）")
-	void randomIvMakesCipherNonDeterministic() {
-		String plain = "same-plain-text";
-
-		String first = service.encrypt(plain);
-		String second = service.encrypt(plain);
-
-		assertThat(first).isNotEqualTo(second);
-		assertThat(first.substring(0, IV_HEX_LEN)).isNotEqualTo(second.substring(0, IV_HEX_LEN));
-		assertThat(service.decrypt(first)).isEqualTo(plain);
-		assertThat(service.decrypt(second)).isEqualTo(plain);
+	@DisplayName("同一明文两次加密结果不同，前 24 位 hex 是 12 字节 IV")
+	void randomIv() {
+		String a = service.encrypt("same");
+		String b = service.encrypt("same");
+		assertThat(a).isNotEqualTo(b);
+		assertThat(a.substring(0, 24)).matches("[0-9a-f]{24}").isNotEqualTo(b.substring(0, 24));
+		assertThat(a).hasSize(24 + ("same".length() + 16) * 2);
 	}
 
 	@Test
-	@DisplayName("密文前 32 位十六进制为 16 字节 IV")
-	void cipherCarriesHexIvPrefix() {
-		String cipher = service.encrypt("payload");
-
-		assertThat(cipher.length()).isGreaterThan(IV_HEX_LEN);
-		assertThat(cipher.substring(0, IV_HEX_LEN)).matches("[0-9a-f]{32}");
+	@DisplayName("base64 密钥（16 字节）与等值 hex 密钥互通")
+	void base64KeyEquivalentToHex() {
+		String b64 = Base64.getEncoder().encodeToString(HexFormat.of().parseHex(HEX_KEY));
+		ApiCryptoService s = newService(" " + b64 + " ", true, false);
+		s.init();
+		assertThat(s.decrypt(service.encrypt("cross"))).isEqualTo("cross");
 	}
 
 	@Test
-	@DisplayName("密文缺少 IV 段时明确报错，而非抛出难以定位的解密异常")
-	void rejectsCipherWithoutIv() {
-		assertThatThrownBy(() -> service.decrypt(null))
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessageContaining("IV");
-		assertThatThrownBy(() -> service.decrypt(""))
-			.isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> service.decrypt("a".repeat(IV_HEX_LEN)))
-			.isInstanceOf(IllegalArgumentException.class);
+	@DisplayName("缺密钥：默认拒绝启动")
+	void missingKeyRejectedByDefault() {
+		assertThatThrownBy(newService("", true, false)::init)
+			.isInstanceOf(IllegalStateException.class).hasMessageContaining("MUGSUN_API_KEY");
+		assertThatThrownBy(newService(null, false, false)::init)
+			.isInstanceOf(IllegalStateException.class).hasMessageContaining("MUGSUN_API_KEY");
 	}
 
 	@Test
-	@DisplayName("换密钥后无法解开旧密文（密钥确实参与运算）")
-	void otherKeyCannotDecrypt() {
-		String cipher = service.encrypt("secret");
+	@DisplayName("strict-keys 开启时，即使 allow-ephemeral-keys=true 也拒绝启动")
+	void strictBeatsEphemeral() {
+		assertThatThrownBy(newService("  ", true, true)::init).isInstanceOf(IllegalStateException.class);
+	}
 
-		ApiCryptoService other = newService("another-key-1616", false);
+	@Test
+	@DisplayName("allow-ephemeral-keys=true：能启动，两次启动密钥不同")
+	void ephemeralKeyDiffersPerStart() {
+		ApiCryptoService first = newService("", false, true);
+		first.init();
+		ApiCryptoService second = newService("", false, true);
+		second.init();
+		String cipher = first.encrypt("eph");
+		assertThat(first.decrypt(cipher)).isEqualTo("eph");
+		assertThatThrownBy(() -> second.decrypt(cipher)).isInstanceOf(IllegalArgumentException.class);
+		Object k1 = ReflectionTestUtils.getField(first, "key");
+		Object k2 = ReflectionTestUtils.getField(second, "key");
+		assertThat(k1).isNotEqualTo(k2);
+	}
+
+	@Test
+	@DisplayName("密钥格式或长度不对：拒绝启动，不补零也不截断")
+	void malformedKeysRejected() {
+		for (String bad : List.of("short", "unit-test-key-16", HEX_KEY + "00", HEX_KEY.substring(2),
+			Base64.getEncoder().encodeToString(new byte[15]), Base64.getEncoder().encodeToString(new byte[32]),
+			"zz" + HEX_KEY.substring(2))) {
+			assertThatThrownBy(newService(bad, true, false)::init)
+				.as("key=%s", bad).isInstanceOf(IllegalStateException.class);
+		}
+	}
+
+	@Test
+	@DisplayName("密文被篡改（IV、正文、标签任一位）或换密钥：解密失败，错误信息统一")
+	void tamperingFailsWithUniformError() {
+		String cipher = service.encrypt("{\"amount\":100}");
+		ApiCryptoService other = newService(OTHER_HEX_KEY, true, false);
 		other.init();
-
-		assertThatThrownBy(() -> other.decrypt(cipher)).isInstanceOf(Exception.class);
+		List<String> bad = List.of(flip(cipher, 0), flip(cipher, 30), flip(cipher, cipher.length() - 1),
+			cipher.substring(0, cipher.length() - 2), cipher + "00", "", "zz" + cipher.substring(2));
+		for (String c : bad) {
+			assertThatThrownBy(() -> service.decrypt(c)).isInstanceOf(IllegalArgumentException.class)
+				.hasMessage(ApiCryptoService.DECRYPT_FAILED);
+		}
+		assertThatThrownBy(() -> service.decrypt(null)).hasMessage(ApiCryptoService.DECRYPT_FAILED);
+		assertThatThrownBy(() -> other.decrypt(cipher)).hasMessage(ApiCryptoService.DECRYPT_FAILED);
 	}
 
 	@Test
-	@DisplayName("密钥不足 16 字节按零字节补齐，仍可往返")
-	void shortKeyIsPaddedToBlockSize() {
-		ApiCryptoService shortKey = newService("short", false);
-		shortKey.init();
-
-		assertThat(shortKey.decrypt(shortKey.encrypt("hello"))).isEqualTo("hello");
+	@DisplayName("源码里没有写死的接口密钥或开发回落值")
+	void noHardcodedKeyInSource() throws IOException {
+		Path src = Path.of("src/main/java/com/mugsun/core/web/crypto/ApiCryptoService.java");
+		String code = Files.readString(src);
+		// 不再出现任何 key = "..." 的字符串字面量赋值，也不再有 16 字节可打印回落值
+		assertThat(code).doesNotContainPattern("key\\s*=\\s*\"[^\"]+\"");
+		assertThat(code).doesNotContainPattern("\"[!-~]{16}\"");
+		assertThat(code).doesNotContainPattern("\"[0-9a-fA-F]{32}\"");
+		try (Stream<Path> files = Files.walk(Path.of("src/main"))) {
+			files.filter(Files::isRegularFile).forEach(f -> {
+				try {
+					assertThat(Files.readString(f)).as(f.toString())
+						.doesNotContainPattern("api-key\\s*[:=]\\s*[^$\\s{}\"]");
+				} catch (IOException e) {
+					throw new IllegalStateException(e);
+				}
+			});
+		}
 	}
 
-	@Test
-	@DisplayName("未配置密钥且非严格模式：回落开发默认值，可用但仅限本地")
-	void fallsBackToDevKeyWhenNotStrict() {
-		ApiCryptoService noKey = newService("", false);
-		noKey.init();
-
-		assertThat(noKey.decrypt(noKey.encrypt("dev"))).isEqualTo("dev");
-	}
-
-	@Test
-	@DisplayName("严格模式下缺密钥直接拒绝启动")
-	void strictModeRejectsMissingKey() {
-		ApiCryptoService strict = newService("   ", true);
-
-		assertThatThrownBy(strict::init)
-			.isInstanceOf(IllegalStateException.class)
-			.hasMessageContaining("MUGSUN_API_KEY");
-	}
-
-	@Test
-	@DisplayName("密钥两端空白被裁剪：带空格与不带空格的密钥互通")
-	void keyIsTrimmed() {
-		ApiCryptoService padded = newService("  unit-test-key-16  ", false);
-		padded.init();
-
-		assertThat(padded.decrypt(service.encrypt("cross"))).isEqualTo("cross");
+	private static String flip(String hex, int idx) {
+		char c = hex.charAt(idx);
+		char r = c == '0' ? '1' : '0';
+		return hex.substring(0, idx) + r + hex.substring(idx + 1);
 	}
 }

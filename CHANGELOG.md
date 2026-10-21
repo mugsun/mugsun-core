@@ -22,6 +22,14 @@
   - gitleaks 8.30.1 钉版本、校验 sha256，`--redact` 不输出密钥值
   - 历史上的测试假值和开发默认值写进 `.gitleaks.toml` allowlist
   - allowlist 按 commit + 文件匹配，改动须安全官审
+### 不兼容变更
+
+- 接口加密去掉内置密钥，改为 SM4-GCM；升级后必须配置 `MUGSUN_API_KEY`
+  - 未配置时默认拒绝启动；`strict-keys` 默认改为 `true`
+  - 仅显式 `allow-ephemeral-keys=true` 且非 strict 时用进程内临时密钥
+  - 密钥须为 32 位 hex 或 16 字节 base64，不再补零或截断
+  - 密文改为 `Hex(IV 12 字节) ‖ Hex(密文 ‖ 标签)`，旧 CBC 密文不再兼容
+  - 解密失败统一返回同一错误；只是传输混淆，不能代替 TLS
 
 ### 变更
 

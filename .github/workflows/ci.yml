@@ -2,9 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # '**' 只匹配分支，不匹配 tag；tag 推送不会触发本 workflow
+    branches: ['**']
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}${{ github.ref == 'refs/heads/main' && format('-{0}', github.sha) || '' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read

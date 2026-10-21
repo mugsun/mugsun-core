@@ -37,10 +37,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 class DuplicateKeyPrecedenceTest {
 
+	private static final String[] EPHEMERAL_KEYS = {
+		"mugsun.crypto.strict-keys=false", "mugsun.crypto.allow-ephemeral-keys=true"};
+
 	private final WebApplicationContextRunner runner = new WebApplicationContextRunner()
 		.withConfiguration(AutoConfigurations.of(DispatcherServletAutoConfiguration.class, WebMvcAutoConfiguration.class,
 			HttpMessageConvertersAutoConfiguration.class, JacksonAutoConfiguration.class,
 			MugsunWebAutoConfiguration.class, MugsunMybatisWebAutoConfiguration.class))
+		// ApiCryptoService 缺密钥默认拒绝启动；本测试与接口加密无关，用进程内临时密钥
+		.withPropertyValues(EPHEMERAL_KEYS)
 		.withUserConfiguration(TestConfig.class);
 
 	@Configuration(proxyBeanMethods = false)
@@ -124,6 +129,7 @@ class DuplicateKeyPrecedenceTest {
 			.withConfiguration(AutoConfigurations.of(DispatcherServletAutoConfiguration.class, WebMvcAutoConfiguration.class,
 				HttpMessageConvertersAutoConfiguration.class, JacksonAutoConfiguration.class,
 				MugsunWebAutoConfiguration.class, MugsunMybatisWebAutoConfiguration.class))
+			.withPropertyValues(EPHEMERAL_KEYS)
 			.run(context -> {
 				String[] names = context.getBeanNamesForType(Object.class);
 				int global = java.util.Arrays.asList(names).indexOf("globalExceptionHandler");

@@ -38,7 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class DuplicateKeyPrecedenceTest {
 
 	private static final String[] EPHEMERAL_KEYS = {
-		"mugsun.crypto.strict-keys=false", "mugsun.crypto.allow-ephemeral-keys=true"};
+		"mugsun.crypto.allow-ephemeral-keys=true"};
 
 	private final WebApplicationContextRunner runner = new WebApplicationContextRunner()
 		.withConfiguration(AutoConfigurations.of(DispatcherServletAutoConfiguration.class, WebMvcAutoConfiguration.class,

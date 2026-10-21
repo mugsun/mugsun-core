@@ -78,14 +78,14 @@ Publishing to Central: create a GitHub Release on this repository, or run the **
 | Property | Default | Notes |
 |---|---|---|
 | `mugsun.crypto.api-key` | none | env `MUGSUN_API_KEY`, required |
-| `mugsun.crypto.strict-keys` | `true` | missing key always fails startup |
+| `mugsun.crypto.strict-keys` | `false` | existing switch; when true even ephemeral keys are refused (deprecated for API crypto) |
 | `mugsun.crypto.allow-ephemeral-keys` | `false` | generate a per-process key when missing |
 
 - After upgrading you must set `MUGSUN_API_KEY`, otherwise the application refuses to start.
-- The key must be 32 hex chars, or base64 that decodes to exactly 16 bytes. Anything else fails startup; no zero-padding or truncation.
+- The key must be 32 hex chars, or padded standard base64 that decodes to exactly 16 bytes. Anything else fails startup; no zero-padding or truncation.
 - Generate one with `openssl rand -hex 16`.
-- Ephemeral keys are for local dev and tests only and need both `allow-ephemeral-keys=true` and `strict-keys=false`. They change on restart and differ between instances.
-- Ciphertext format: `Hex(IV, 12 bytes) ‖ Hex(ciphertext ‖ GCM tag, 16 bytes)`. Old CBC ciphertext is no longer accepted; frontends must switch to SM4-GCM.
+- Ephemeral keys are for local dev and tests only and need only `allow-ephemeral-keys=true` (still refused when `strict-keys=true`). They change on restart and differ between instances.
+- Ciphertext format: `base64(IV 12 bytes ‖ ciphertext ‖ tag 16 bytes)`, padded standard base64. Shared vectors: `mugsun-starter-web/src/test/resources/crypto/api-crypto-vectors.json`. Old CBC ciphertext is no longer accepted; frontends must switch to SM4-GCM.
 - Every decryption failure returns the same error.
 
 ## Composition

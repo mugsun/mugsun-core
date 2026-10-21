@@ -78,17 +78,18 @@ mvn clean install -DskipTests
 | 配置 | 默认 | 说明 |
 |---|---|---|
 | `mugsun.crypto.api-key` | 无 | 环境变量 `MUGSUN_API_KEY`，必填 |
-| `mugsun.crypto.strict-keys` | `true` | 开启时缺密钥一律拒绝启动 |
+| `mugsun.crypto.strict-keys` | `false` | 已有开关；为 true 时连临时密钥也拒绝，接口加密侧已废弃 |
 | `mugsun.crypto.allow-ephemeral-keys` | `false` | 缺密钥时生成进程内临时密钥 |
 
 - 升级后必须配置 `MUGSUN_API_KEY`，否则应用拒绝启动。
-- 密钥须为 32 位 hex，或解码后正好 16 字节的 base64。
+- 密钥须为 32 位 hex，或带填充的标准 base64 且解码后正好 16 字节。
 - 格式不对就拒绝启动，不再补零或截断。
 - 生成示例：`openssl rand -hex 16`。
 - 临时密钥只用于本地开发和测试。
-- 需同时设 `allow-ephemeral-keys=true` 和 `strict-keys=false`。
+- 只需设 `allow-ephemeral-keys=true`；`strict-keys=true` 时仍拒绝。
 - 临时密钥重启后会变，多实例之间不互通。
-- 密文格式：`Hex(IV 12 字节) ‖ Hex(密文 ‖ GCM 标签 16 字节)`。
+- 密文格式：`base64(IV 12 字节 ‖ 密文 ‖ 标签 16 字节)`，必须带填充。
+- 跨端测试数据：`mugsun-starter-web/src/test/resources/crypto/api-crypto-vectors.json`。
 - 旧的 CBC 密文不再兼容，前端要同步改成 SM4-GCM。
 - 解密失败一律返回同一个错误，不区分原因。
 

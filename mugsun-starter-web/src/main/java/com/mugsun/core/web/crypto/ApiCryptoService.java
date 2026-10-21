@@ -1,6 +1,5 @@
 package com.mugsun.core.web.crypto;
 
-import cn.hutool.core.util.HexUtil;
 import jakarta.annotation.PostConstruct;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
@@ -20,12 +19,13 @@ import java.util.regex.Pattern;
 
 /**
  * 接口传输国密加解密服务：<b>SM4-GCM</b>（BouncyCastle），带完整性校验。
- * <p>密文格式 = {@code Hex(IV_12字节) ‖ Hex(密文 ‖ GCM 标签_16字节)}。
+ * <p>密文格式 = {@code base64(IV_12字节 ‖ 密文 ‖ GCM 标签_16字节)}，标准字母表、必须带填充。
+ * 跨端测试数据见测试资源 {@code crypto/api-crypto-vectors.json}（与 mugsun-pc 共用）。
  * <p><b>只是传输混淆，不能代替 TLS</b>：对称密钥要下发到浏览器，对客户端不保密。
  * <p>密钥经 {@code mugsun.crypto.api-key}（环境变量 {@code MUGSUN_API_KEY}）注入，
  * 必须是 32 位 hex 或解码后正好 16 字节的 base64，否则拒绝启动。
- * 未配置时默认拒绝启动；仅当 {@code allow-ephemeral-keys=true} 且未开 {@code strict-keys}
- * 时，生成只在本进程内有效的随机密钥。
+ * 未配置时默认拒绝启动；仅当 {@code allow-ephemeral-keys=true} 时生成只在本进程内有效的随机密钥
+ * （{@code strict-keys=true} 时仍拒绝）。
  */
 public class ApiCryptoService {
 
@@ -34,11 +34,8 @@ public class ApiCryptoService {
 	static final int KEY_BYTES = 16;
 	static final int IV_BYTES = 12;
 	static final int TAG_BITS = 128;
-	private static final int IV_HEX = IV_BYTES * 2;
-	private static final int MIN_CIPHER_HEX = IV_HEX + TAG_BITS / 4;
 	private static final Pattern HEX_KEY = Pattern.compile("^[0-9a-fA-F]{32}$");
-	private static final Pattern B64_KEY = Pattern.compile("^[A-Za-z0-9+/]+={0,2}$");
-	private static final Pattern HEX_BODY = Pattern.compile("^[0-9a-fA-F]+$");
+	private static final Pattern B64 = Pattern.compile("^[A-Za-z0-9+/]+={0,2}$");
 	/** 解密失败一律同一个错误，不区分 IV、标签、格式，避免 oracle */
 	static final String DECRYPT_FAILED = "接口密文无效";
 	private static final Provider BC = new BouncyCastleProvider();
@@ -46,8 +43,12 @@ public class ApiCryptoService {
 	@Value("${mugsun.crypto.api-key:}")
 	private String apiKey;
 
-	/** 严格模式（默认开）：缺密钥即拒绝启动，连临时密钥也不允许 */
-	@Value("${mugsun.crypto.strict-keys:true}")
+	/**
+	 * 已有的生产开关（boot 的 prod 配置设为 true，同时管 SM2/SM4 等密钥）。
+	 * 对接口加密只起一票否决：为 true 时即使 allow-ephemeral-keys=true 也拒绝启动。
+	 * 缺密钥默认就拒绝启动，不再需要靠它兜底；接口加密这边视为废弃，后续可移除。
+	 */
+	@Value("${mugsun.crypto.strict-keys:false}")
 	private boolean strictKeys;
 
 	/** 显式允许：缺密钥时生成只在本进程内有效的随机密钥（仅本地开发/测试用） */
@@ -61,8 +62,8 @@ public class ApiCryptoService {
 	public void init() {
 		if (apiKey == null || apiKey.isBlank()) {
 			if (strictKeys || !allowEphemeralKeys) {
-				throw new IllegalStateException("未配置接口加密密钥 MUGSUN_API_KEY（32 位 hex 或 16 字节 base64），拒绝启动；"
-					+ "本地开发可设 mugsun.crypto.allow-ephemeral-keys=true 且 strict-keys=false");
+				throw new IllegalStateException("未配置接口加密密钥 MUGSUN_API_KEY（32 位 hex 或带填充的 16 字节 base64），"
+					+ "拒绝启动；仅本地开发可设 mugsun.crypto.allow-ephemeral-keys=true");
 			}
 			byte[] k = new byte[KEY_BYTES];
 			secureRandom.nextBytes(k);
@@ -87,45 +88,63 @@ public class ApiCryptoService {
 		if (HEX_KEY.matcher(s).matches()) {
 			return HexFormat.of().parseHex(s);
 		}
-		if (B64_KEY.matcher(s).matches() && s.length() % 4 == 0) {
-			try {
-				byte[] b = Base64.getDecoder().decode(s);
-				if (b.length == KEY_BYTES && Base64.getEncoder().encodeToString(b).equals(s)) {
-					return b;
-				}
-			} catch (IllegalArgumentException ignored) {
-				// 落到下面统一报错
-			}
+		byte[] b = decodeCanonicalBase64(s);
+		if (b != null && b.length == KEY_BYTES) {
+			return b;
 		}
 		throw new IllegalStateException("MUGSUN_API_KEY 格式不对：须为 32 位 hex，或带填充的标准 base64 且解码后正好 16 字节，拒绝启动");
 	}
 
-	/** 明文 → Hex(IV) ‖ Hex(密文 ‖ 标签)；每次 CSPRNG 随机 12 字节 IV */
+	/** 明文 → base64(IV ‖ 密文 ‖ 标签)；每次 CSPRNG 随机 12 字节 IV */
 	public String encrypt(String plain) {
 		byte[] iv = new byte[IV_BYTES];
 		secureRandom.nextBytes(iv);
+		return encryptWithIv(plain, iv);
+	}
+
+	/** 固定 IV 加密，仅供跨端测试向量使用；业务代码不得调用 */
+	String encryptWithIv(String plain, byte[] iv) {
 		try {
 			Cipher c = Cipher.getInstance("SM4/GCM/NoPadding", BC);
 			c.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, iv));
-			return HexUtil.encodeHexStr(iv) + HexUtil.encodeHexStr(c.doFinal(plain.getBytes(StandardCharsets.UTF_8)));
+			byte[] body = c.doFinal(plain.getBytes(StandardCharsets.UTF_8));
+			byte[] out = new byte[IV_BYTES + body.length];
+			System.arraycopy(iv, 0, out, 0, IV_BYTES);
+			System.arraycopy(body, 0, out, IV_BYTES, body.length);
+			return Base64.getEncoder().encodeToString(out);
 		} catch (GeneralSecurityException e) {
 			throw new IllegalStateException("接口加密失败", e);
 		}
 	}
 
-	/** Hex(IV) ‖ Hex(密文 ‖ 标签) → 明文；格式错误、被篡改、密钥不对都抛同一个错误 */
+	/** base64(IV ‖ 密文 ‖ 标签) → 明文；格式错误、被篡改、密钥不对都抛同一个错误 */
 	public String decrypt(String cipher) {
-		if (cipher == null || cipher.length() < MIN_CIPHER_HEX || (cipher.length() & 1) != 0
-			|| !HEX_BODY.matcher(cipher).matches()) {
+		byte[] raw = decodeCanonicalBase64(cipher);
+		if (raw == null || raw.length < IV_BYTES + TAG_BITS / 8) {
 			throw new IllegalArgumentException(DECRYPT_FAILED);
 		}
 		try {
-			byte[] iv = HexUtil.decodeHex(cipher.substring(0, IV_HEX));
 			Cipher c = Cipher.getInstance("SM4/GCM/NoPadding", BC);
-			c.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, iv));
-			return new String(c.doFinal(HexUtil.decodeHex(cipher.substring(IV_HEX))), StandardCharsets.UTF_8);
+			c.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, raw, 0, IV_BYTES));
+			return new String(c.doFinal(raw, IV_BYTES, raw.length - IV_BYTES), StandardCharsets.UTF_8);
 		} catch (GeneralSecurityException | RuntimeException e) {
 			throw new IllegalArgumentException(DECRYPT_FAILED);
+		}
+	}
+
+	/**
+	 * 标准字母表、必须带填充的 base64；解码后重新编码须与输入一致（拒绝缺填充、url-safe、空白、非规范编码）。
+	 * 不合规返回 null。密钥和密文共用这条规则。
+	 */
+	static byte[] decodeCanonicalBase64(String s) {
+		if (s == null || s.isEmpty() || s.length() % 4 != 0 || !B64.matcher(s).matches()) {
+			return null;
+		}
+		try {
+			byte[] b = Base64.getDecoder().decode(s);
+			return Base64.getEncoder().encodeToString(b).equals(s) ? b : null;
+		} catch (IllegalArgumentException e) {
+			return null;
 		}
 	}
 }

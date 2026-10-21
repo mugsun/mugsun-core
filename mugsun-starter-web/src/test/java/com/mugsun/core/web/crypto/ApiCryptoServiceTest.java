@@ -59,13 +59,16 @@ class ApiCryptoServiceTest {
 	}
 
 	@Test
-	@DisplayName("同一明文两次加密结果不同，前 24 位 hex 是 12 字节 IV")
+	@DisplayName("同一明文两次加密结果不同；输出是带填充的标准 base64，前 12 字节是 IV")
 	void randomIv() {
 		String a = service.encrypt("same");
 		String b = service.encrypt("same");
 		assertThat(a).isNotEqualTo(b);
-		assertThat(a.substring(0, 24)).matches("[0-9a-f]{24}").isNotEqualTo(b.substring(0, 24));
-		assertThat(a).hasSize(24 + ("same".length() + 16) * 2);
+		byte[] ra = Base64.getDecoder().decode(a);
+		byte[] rb = Base64.getDecoder().decode(b);
+		assertThat(Base64.getEncoder().encodeToString(ra)).isEqualTo(a);
+		assertThat(ra).hasSize(12 + "same".length() + 16);
+		assertThat(java.util.Arrays.copyOf(ra, 12)).isNotEqualTo(java.util.Arrays.copyOf(rb, 12));
 	}
 
 	@Test
@@ -119,38 +122,54 @@ class ApiCryptoServiceTest {
 	}
 
 	@Test
-	@DisplayName("跨端测试向量（与 mugsun-pc 共用）：合法密钥解析出相同字节，非法密钥一律拒绝")
-	void sharedKeyVectors() throws IOException {
+	@DisplayName("跨端测试数据（与 mugsun-pc 共用）：密钥解析、固定 IV 加密向量、非法密文")
+	void sharedVectors() throws IOException {
 		com.fasterxml.jackson.databind.JsonNode root;
-		try (var in = getClass().getResourceAsStream("/crypto/api-key-vectors.json")) {
+		try (var in = getClass().getResourceAsStream("/crypto/api-crypto-vectors.json")) {
 			root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(in);
 		}
-		assertThat(root.path("valid").size()).isGreaterThan(0);
-		for (var v : root.path("valid")) {
+		assertThat(root.path("validKeys").size()).isGreaterThan(0);
+		for (var v : root.path("validKeys")) {
 			assertThat(HexFormat.of().formatHex(ApiCryptoService.parseKey(v.path("input").asText())))
 				.as(v.path("name").asText()).isEqualTo(v.path("bytesHex").asText());
-			ApiCryptoService s = newService(v.path("input").asText(), true, false);
-			s.init();
+			newService(v.path("input").asText(), true, false).init();
 		}
-		assertThat(root.path("invalid").size()).isGreaterThan(0);
-		for (var v : root.path("invalid")) {
-			assertThatThrownBy(() -> ApiCryptoService.parseKey(v.path("input").asText()))
+		assertThat(root.path("invalidKeys").size()).isGreaterThan(0);
+		for (var v : root.path("invalidKeys")) {
+			assertThatThrownBy(newService(v.path("input").asText(), false, false)::init)
 				.as(v.path("name").asText()).isInstanceOf(IllegalStateException.class);
-			assertThatThrownBy(newService(v.path("input").asText(), true, false)::init)
-				.as(v.path("name").asText()).isInstanceOf(IllegalStateException.class);
+		}
+		assertThat(root.path("encryptVectors").size()).isGreaterThan(0);
+		for (var v : root.path("encryptVectors")) {
+			ApiCryptoService s = newService(v.path("keyHex").asText(), true, false);
+			s.init();
+			String plain = v.path("plaintext").asText();
+			assertThat(s.encryptWithIv(plain, HexFormat.of().parseHex(v.path("ivHex").asText())))
+				.as(plain).isEqualTo(v.path("ciphertext").asText());
+			assertThat(s.decrypt(v.path("ciphertext").asText())).isEqualTo(plain);
+		}
+		var inv = root.path("invalidCiphertexts");
+		ApiCryptoService s = newService(inv.path("keyHex").asText(), true, false);
+		s.init();
+		assertThat(inv.path("cases").size()).isGreaterThan(0);
+		for (var v : inv.path("cases")) {
+			assertThatThrownBy(() -> s.decrypt(v.path("ciphertext").asText())).as(v.path("name").asText())
+				.isInstanceOf(IllegalArgumentException.class).hasMessage(ApiCryptoService.DECRYPT_FAILED);
 		}
 	}
 
 	@Test
-	@DisplayName("密文被篡改（IV、正文、标签任一位）或换密钥：解密失败，错误信息统一")
+	@DisplayName("密文被篡改（IV、正文、标签任一位）、格式不对或换密钥：解密失败，错误信息统一")
 	void tamperingFailsWithUniformError() {
 		String cipher = service.encrypt("{\"amount\":100}");
+		byte[] raw = Base64.getDecoder().decode(cipher);
 		ApiCryptoService other = newService(OTHER_HEX_KEY, true, false);
 		other.init();
-		List<String> bad = List.of(flip(cipher, 0), flip(cipher, 30), flip(cipher, cipher.length() - 1),
-			cipher.substring(0, cipher.length() - 2), cipher + "00", "", "zz" + cipher.substring(2));
+		List<String> bad = List.of(flip(raw, 0), flip(raw, 13), flip(raw, raw.length - 1),
+			Base64.getEncoder().encodeToString(java.util.Arrays.copyOf(raw, raw.length - 1)),
+			HexFormat.of().formatHex(raw), "", cipher + "=", " " + cipher);
 		for (String c : bad) {
-			assertThatThrownBy(() -> service.decrypt(c)).isInstanceOf(IllegalArgumentException.class)
+			assertThatThrownBy(() -> service.decrypt(c)).as(c).isInstanceOf(IllegalArgumentException.class)
 				.hasMessage(ApiCryptoService.DECRYPT_FAILED);
 		}
 		assertThatThrownBy(() -> service.decrypt(null)).hasMessage(ApiCryptoService.DECRYPT_FAILED);
@@ -178,9 +197,9 @@ class ApiCryptoServiceTest {
 		}
 	}
 
-	private static String flip(String hex, int idx) {
-		char c = hex.charAt(idx);
-		char r = c == '0' ? '1' : '0';
-		return hex.substring(0, idx) + r + hex.substring(idx + 1);
+	private static String flip(byte[] raw, int idx) {
+		byte[] c = raw.clone();
+		c[idx] ^= 1;
+		return Base64.getEncoder().encodeToString(c);
 	}
 }

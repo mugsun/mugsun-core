@@ -1,17 +1,19 @@
 # gitleaks 配置：在默认规则上追加 allowlist。
 # 新增或修改 allowlist 条目必须安全官审；只写位置和规则名，不写密钥值。
-# 条目按「commit + 文件」同时匹配才放行，之后改到这些行仍会重新报出。
+# 条目一律按「规则 + 文件 + 精确值」同时匹配才放行（AND），不按 commit 放行；
+# 之后改到这些行或写入其他值仍会重新报出。
 
 [extend]
 useDefault = true
 
 [[allowlists]]
 description = "开发默认值：未配置 MUGSUN_API_KEY 时的本地回落值，生产 strict-keys 拒绝启动（generic-api-key）"
+targetRules = ["generic-api-key"]
 condition = "AND"
 paths = ['''^mugsun-starter-web/src/main/java/com/mugsun/core/web/crypto/ApiCryptoService\.java$''']
-commits = [
-  "b95a865d207914715f70c2101ed1761f36f42726",
-  "ea4a2b00da9540cea447fa6f0ab0f3506f394ef6",
+regexTarget = "secret"
+regexes = [
+  '''^mugsun\-api\-key16$''',
 ]
 
 [[allowlists]]

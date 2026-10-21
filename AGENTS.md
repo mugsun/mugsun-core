@@ -78,5 +78,6 @@ python3 scripts/ci/check-workflows.py .github/workflows
 - Conventional Commits，主题中文，不超过 50 字，不用 emoji；详见 `.github/COMMIT_CONVENTION.md`。
 - `CHANGELOG.md` 写在 `## [Unreleased]` 下，**每行不超过 80 字**。
 - 不用 `git stash`；切换工作用 `git worktree`。
+- 提交的作者和提交者一律用 `Mugsun <100790155+mugsun@users.noreply.github.com>`：只在仓库级配置（`git config --local`）里设，或用 `git -c user.name=… -c user.email=…` 传入，不改全局配置。已推送的历史不改；未推送的提交推送前用 `git rebase --exec 'git commit --amend --no-edit --reset-author'` 重做，并确认提交者也是 noreply。
 - **只有分支最新的 commit 已经在分支上跑过同名必需检查、并且全绿，才可以快进推入 main。推送前用 `gh run list --commit <sha>` 自己确认。不要 force push。**
 - 改 `.github/workflows/`、BOM 依赖版本或加解密实现属于敏感改动，需安全审查。

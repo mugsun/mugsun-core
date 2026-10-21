@@ -1,0 +1,23 @@
+# gitleaks 配置：在默认规则上追加 allowlist。
+# 新增或修改 allowlist 条目必须安全官审；只写位置和规则名，不写密钥值。
+# 条目按「commit + 文件」同时匹配才放行，之后改到这些行仍会重新报出。
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "开发默认值：未配置 MUGSUN_API_KEY 时的本地回落值，生产 strict-keys 拒绝启动（generic-api-key）"
+condition = "AND"
+paths = ['''^mugsun-starter-web/src/main/java/com/mugsun/core/web/crypto/ApiCryptoService\.java$''']
+commits = [
+  "b95a865d207914715f70c2101ed1761f36f42726",
+  "ea4a2b00da9540cea447fa6f0ab0f3506f394ef6",
+]
+
+[[allowlists]]
+description = "测试假值：接口加密跨端测试向量的固定测试密钥（顺序字节，非部署密钥）；之后字段已改名（generic-api-key）"
+condition = "AND"
+paths = ['''^mugsun-starter-web/src/test/resources/crypto/api-crypto-vectors\.json$''']
+commits = [
+  "8bba62b59022d15ed222e50f47205354f7016c1f",
+]

@@ -13,6 +13,18 @@
   - `strict-keys=true` 仍拒绝临时密钥；接口加密侧视为废弃
   - 解密失败统一返回同一错误；只是传输混淆，不能代替 TLS
 
+### CI
+
+- 收紧 workflow 权限并把 Actions 钉到 commit SHA
+  - 每个 workflow 顶层 `permissions: contents: read`，禁用 `pull_request_target`
+  - Actions 钉 40 位 SHA，行尾注释版本号
+  - 新增 `scripts/ci/check-workflows.py` 和 actionlint（钉版本、校验 sha256）
+
+- 接入 gitleaks 全历史扫描
+  - gitleaks 8.30.1 钉版本、校验 sha256，`--redact` 不输出密钥值
+  - 历史上的测试假值和开发默认值写进 `.gitleaks.toml` allowlist
+  - allowlist 按 commit + 文件匹配，改动须安全官审
+
 ### 变更
 
 - 许可证由 Apache-2.0 改为 MIT（见 `LICENSE`）。Maven Central 上已发布的 `0.1.0` 构件仍保留发布时声明的 Apache-2.0

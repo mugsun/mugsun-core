@@ -75,10 +75,12 @@ mvn clean install -DskipTests
 
 **这只是传输混淆，不能代替 TLS。** 对称密钥要下发到浏览器，对客户端不保密。
 
+不防重放、不绑定接口：密文没有绑定方法和路径，可被原样重发或搬到另一个加密接口。
+
 | 配置 | 默认 | 说明 |
 |---|---|---|
 | `mugsun.crypto.api-key` | 无 | 环境变量 `MUGSUN_API_KEY`，必填 |
-| `mugsun.crypto.strict-keys` | `false` | 已有开关；为 true 时连临时密钥也拒绝，接口加密侧已废弃 |
+| `mugsun.crypto.strict-keys` | `false` | 已有开关；接口加密侧只作否决：为 true 时连临时密钥也拒绝 |
 | `mugsun.crypto.allow-ephemeral-keys` | `false` | 缺密钥时生成进程内临时密钥 |
 
 - 升级后必须配置 `MUGSUN_API_KEY`，否则应用拒绝启动。

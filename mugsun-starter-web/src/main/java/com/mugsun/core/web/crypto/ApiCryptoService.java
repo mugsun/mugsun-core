@@ -22,6 +22,7 @@ import java.util.regex.Pattern;
  * <p>密文格式 = {@code base64(IV_12字节 ‖ 密文 ‖ GCM 标签_16字节)}，标准字母表、必须带填充。
  * 跨端测试数据见测试资源 {@code crypto/api-crypto-vectors.json}（与 mugsun-pc 共用）。
  * <p><b>只是传输混淆，不能代替 TLS</b>：对称密钥要下发到浏览器，对客户端不保密。
+ * <p>不防重放、不绑定接口：密文没有 AAD，可被原样重发或搬到另一个加密接口。
  * <p>密钥经 {@code mugsun.crypto.api-key}（环境变量 {@code MUGSUN_API_KEY}）注入，
  * 必须是 32 位 hex 或解码后正好 16 字节的 base64，否则拒绝启动。
  * 未配置时默认拒绝启动；仅当 {@code allow-ephemeral-keys=true} 时生成只在本进程内有效的随机密钥
@@ -46,7 +47,7 @@ public class ApiCryptoService {
 	/**
 	 * 已有的生产开关（boot 的 prod 配置设为 true，同时管 SM2/SM4 等密钥）。
 	 * 对接口加密只起一票否决：为 true 时即使 allow-ephemeral-keys=true 也拒绝启动。
-	 * 缺密钥默认就拒绝启动，不再需要靠它兜底；接口加密这边视为废弃，后续可移除。
+	 * 接口加密侧只作否决：防止 dev 配置或 allow-ephemeral-keys 误进生产。
 	 */
 	@Value("${mugsun.crypto.strict-keys:false}")
 	private boolean strictKeys;

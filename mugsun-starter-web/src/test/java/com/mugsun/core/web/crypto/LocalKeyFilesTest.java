@@ -91,4 +91,45 @@ class LocalKeyFilesTest {
 		Files.createFile(de);
 		assertThat(LocalKeyFiles.inContainer(de, none)).isTrue();
 	}
+
+	@Test
+	@DisplayName("密钥文件或 .lock 是符号链接：拒绝启动")
+	void symlinkRejected() throws Exception {
+		Path real = tmp.resolve("real.key");
+		Files.writeString(real, "kabc\n");
+		Path home = tmp.resolve("h");
+		Files.createDirectories(home);
+		Files.createSymbolicLink(home.resolve("k.key"), real);
+		org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+			LocalKeyFiles.loadOrCreate(home.resolve("k.key"), () -> "knew", v -> v.startsWith("k"), "测试密钥"))
+			.isInstanceOf(IllegalStateException.class).hasMessageContaining("符号链接");
+		Path home2 = tmp.resolve("h2");
+		Files.createDirectories(home2);
+		Files.createSymbolicLink(home2.resolve("k.key.lock"), real);
+		org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+			LocalKeyFiles.loadOrCreate(home2.resolve("k.key"), () -> "knew", v -> v.startsWith("k"), "测试密钥"))
+			.isInstanceOf(IllegalStateException.class).hasMessageContaining("符号链接");
+		assertThat(Files.readString(real)).isEqualTo("kabc\n");
+	}
+
+	@Test
+	@DisplayName("目录组/其他可写：打 WARN，照常启动")
+	void unsafeDirWarns() throws Exception {
+		Path home = tmp.resolve("open");
+		Files.createDirectories(home);
+		org.junit.jupiter.api.Assumptions.assumeTrue(Files.getFileStore(home).supportsFileAttributeView("posix"));
+		Files.setPosixFilePermissions(home, PosixFilePermissions.fromString("rwxrwxrwx"));
+		ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(LocalKeyFiles.class);
+		var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+		appender.start();
+		logger.addAppender(appender);
+		try {
+			var l = LocalKeyFiles.loadOrCreate(home.resolve("k.key"), () -> "knew", v -> v.startsWith("k"), "测试密钥");
+			assertThat(l.created()).isTrue();
+			assertThat(appender.list).anyMatch(e -> e.getLevel() == ch.qos.logback.classic.Level.WARN
+				&& e.getFormattedMessage().contains("可写"));
+		} finally {
+			logger.detachAppender(appender);
+		}
+	}
 }

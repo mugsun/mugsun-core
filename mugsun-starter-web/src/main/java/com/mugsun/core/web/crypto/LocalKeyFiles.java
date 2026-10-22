@@ -10,6 +10,7 @@ import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
@@ -31,6 +32,7 @@ import java.util.function.Supplier;
  *   <li>新建目录 700、文件 600；先写同目录临时文件、fsync，再原子 rename 成正式文件；</li>
  *   <li>并发首启：同 JVM 内按路径加锁，跨进程用同目录 {@code .lock} 文件的排他锁，拿到锁后再检查一次；</li>
  *   <li>读取时权限比 600 宽只打 WARN，不拒绝启动；文件系统不支持 POSIX 权限时打 WARN；</li>
+ *   <li>密钥文件和 .lock 不跟随符号链接，是符号链接就拒绝启动；目录属主不对或组/其他可写打 WARN；</li>
  *   <li>日志只写路径，从不写文件内容。</li>
  * </ul>
  */
@@ -71,11 +73,15 @@ public final class LocalKeyFiles {
 		Path dir = f.getParent();
 		try {
 			createPrivateDirectories(dir);
-			if (!Files.exists(f)) {
+			warnIfDirUnsafe(dir, label);
+			rejectSymlink(f, label);
+			if (!Files.exists(f, LinkOption.NOFOLLOW_LINKS)) {
 				synchronized (JVM_LOCKS.computeIfAbsent(f, k -> new Object())) {
 					Path lockFile = dir.resolve(f.getFileName() + ".lock");
+					rejectSymlink(lockFile, label);
 					try (FileChannel ch = openLockFile(lockFile); FileLock ignored = ch.lock()) {
-						if (!Files.exists(f)) {
+						rejectSymlink(f, label);
+						if (!Files.exists(f, LinkOption.NOFOLLOW_LINKS)) {
 							String content = generator.get();
 							if (!validator.test(content)) {
 								throw new IllegalStateException(label + "生成结果格式不对");
@@ -86,8 +92,12 @@ public final class LocalKeyFiles {
 					}
 				}
 			}
+			rejectSymlink(f, label);
 			warnIfTooOpen(f, label);
-			String s = Files.readString(f, StandardCharsets.US_ASCII).strip();
+			String s;
+			try (var in = Files.newInputStream(f, LinkOption.NOFOLLOW_LINKS)) {
+				s = new String(in.readAllBytes(), StandardCharsets.US_ASCII).strip();
+			}
 			if (!validator.test(s)) {
 				throw new IllegalStateException(label + "文件内容格式不对，拒绝启动；确认没有用它加密过需要保留的数据后，"
 					+ "删除该文件重启即可重新生成，或改用环境变量配置：" + f);
@@ -119,7 +129,7 @@ public final class LocalKeyFiles {
 	}
 
 	private static FileChannel openLockFile(Path lockFile) throws IOException {
-		Set<StandardOpenOption> opts = EnumSet.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+		Set<java.nio.file.OpenOption> opts = Set.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
 		return posix(lockFile.getParent())
 			? FileChannel.open(lockFile, opts, filePerms())
 			: FileChannel.open(lockFile, opts);
@@ -135,7 +145,8 @@ public final class LocalKeyFiles {
 			log.warn("文件系统不支持 POSIX 权限，没法把密钥文件设成 600，请自行限制访问：{}", f);
 		}
 		try {
-			try (FileChannel ch = FileChannel.open(tmp, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+			try (FileChannel ch = FileChannel.open(tmp, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING,
+				LinkOption.NOFOLLOW_LINKS)) {
 				ch.write(StandardCharsets.US_ASCII.encode(content + "\n"));
 				ch.force(true);
 			}
@@ -179,6 +190,33 @@ public final class LocalKeyFiles {
 		}
 	}
 
+	/** 密钥文件或锁文件是符号链接：视为被篡改，拒绝启动（不是配置问题） */
+	static void rejectSymlink(Path p, String label) {
+		if (Files.isSymbolicLink(p)) {
+			throw new IllegalStateException(label + "路径是符号链接，疑似被篡改，拒绝启动；请确认后删除该链接：" + p);
+		}
+	}
+
+	/** 已存在目录的属主不是当前用户，或组/其他用户可写：打 WARN，不拒绝启动 */
+	static void warnIfDirUnsafe(Path dir, String label) {
+		try {
+			if (!posix(dir)) {
+				return;
+			}
+			String me = System.getProperty("user.name");
+			String owner = Files.getOwner(dir, LinkOption.NOFOLLOW_LINKS).getName();
+			if (me != null && !me.equals(owner)) {
+				log.warn("{}目录属主是 {}，不是当前用户 {}，请检查：{}", label, owner, me, dir);
+			}
+			Set<PosixFilePermission> perms = Files.getPosixFilePermissions(dir, LinkOption.NOFOLLOW_LINKS);
+			if (perms.contains(PosixFilePermission.GROUP_WRITE) || perms.contains(PosixFilePermission.OTHERS_WRITE)) {
+				log.warn("{}目录组或其他用户可写（{}），建议 chmod 700：{}", label, PosixFilePermissions.toString(perms), dir);
+			}
+		} catch (IOException | UnsupportedOperationException e) {
+			log.warn("读不到{}目录的属主或权限，没法确认是否安全：{}", label, dir);
+		}
+	}
+
 	/** 权限比 600 宽（组或其他用户有任何权限）就打 WARN；非 POSIX 打 WARN 说明没法确认 */
 	static void warnIfTooOpen(Path file, String label) {
 		try {
@@ -186,7 +224,7 @@ public final class LocalKeyFiles {
 				log.warn("文件系统不支持 POSIX 权限，没法确认{}文件是否为 600，请自行限制访问：{}", label, file);
 				return;
 			}
-			Set<PosixFilePermission> perms = Files.getPosixFilePermissions(file);
+			Set<PosixFilePermission> perms = Files.getPosixFilePermissions(file, LinkOption.NOFOLLOW_LINKS);
 			Set<PosixFilePermission> extra = EnumSet.copyOf(perms);
 			extra.removeAll(EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE));
 			if (!extra.isEmpty()) {

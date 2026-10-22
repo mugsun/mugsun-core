@@ -7,14 +7,13 @@
 useDefault = true
 
 [[allowlists]]
-description = "开发默认值：未配置 MUGSUN_API_KEY 时的本地回落值，生产 strict-keys 拒绝启动（generic-api-key）"
+# 仅历史放行：旧版 ApiCryptoService 里已删除的开发回落值，只在下面两个历史 commit 出现；
+# commit + 文件 + 规则同时匹配（AND）才放行，当前及以后的提交不受此条影响。
+description = "历史提交里已删除的接口加密开发回落值（generic-api-key），仅限列出的 commit"
 targetRules = ["generic-api-key"]
 condition = "AND"
+commits = ["ea4a2b00da9540cea447fa6f0ab0f3506f394ef6", "b95a865d207914715f70c2101ed1761f36f42726"]
 paths = ['''^mugsun-starter-web/src/main/java/com/mugsun/core/web/crypto/ApiCryptoService\.java$''']
-regexTarget = "secret"
-regexes = [
-  '''^mugsun\-api\-key16$''',
-]
 
 [[allowlists]]
 # K1 跨端互通的公开测试向量（api-crypto-vectors.json），不是真实密钥。

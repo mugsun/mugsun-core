@@ -16,7 +16,7 @@
   - 目录可用 `mugsun.home` / `MUGSUN_HOME` 覆盖；日志只写路径
   - 权限比 600 宽、非 POSIX、容器内未配密钥时打 WARN，不拒绝启动
   - Docker 不挂卷或多实例部署必须配 `MUGSUN_API_KEY` 或挂共享卷
-  - 配置值等于已删除的旧内置默认值时拒绝启动
+  - 配置值解码后等于已删除的旧内置默认值时拒绝启动（hex/base64 写法同样）
   - 移除 `allow-ephemeral-keys`；`strict-keys` 不再影响接口加密
   - 新增 `transportKeyHex()`，只供已登录会话的启动下发接口使用
   - 密钥须为 32 位 hex 或带填充的 16 字节标准 base64，不补零不截断

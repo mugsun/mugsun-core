@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
  * 接口传输国密加解密服务：<b>SM4-GCM</b>（BouncyCastle），带完整性校验。
  * <p>密文格式 = {@code base64(IV_12字节 ‖ 密文 ‖ GCM 标签_16字节)}，标准字母表、必须带填充。
  * 跨端测试数据见测试资源 {@code crypto/api-crypto-vectors.json}（与 mugsun-pc 共用）。
- * <p><b>只是传输混淆，不能代替 TLS</b>：对称密钥要下发到浏览器，对客户端不保密。
+ * <p><b>只是传输混淆，不能代替 HTTPS</b>：对称密钥要下发到浏览器，对客户端不保密。
  * <p>不防重放、不绑定接口：密文没有 AAD，可被原样重发或搬到另一个加密接口。
  * <p>密钥来源（约定优于配置，没配也能启动）：
  * <ol>
@@ -125,23 +125,33 @@ public class ApiCryptoService {
 		if (s.isEmpty()) {
 			throw new IllegalStateException("未配置接口加密密钥 MUGSUN_API_KEY，拒绝启动");
 		}
-		if (isLegacyBuiltin(s)) {
-			throw new IllegalStateException("MUGSUN_API_KEY 等于已删除的旧内置默认值，拒绝启动："
-				+ "请换成新密钥（openssl rand -hex 16），或删掉该配置让系统自动生成");
+		// legacy 写法：16 个字符按 UTF-8 原样当 16 字节（旧版行为），只用于拒绝旧默认值，不作为合法格式
+		byte[] legacy = s.getBytes(StandardCharsets.UTF_8);
+		if (legacy.length == KEY_BYTES) {
+			rejectLegacyBuiltin(legacy);
 		}
 		if (HEX_KEY.matcher(s).matches()) {
-			return HexFormat.of().parseHex(s);
+			return rejectLegacyBuiltin(HexFormat.of().parseHex(s));
 		}
 		byte[] b = decodeCanonicalBase64(s);
 		if (b != null && b.length == KEY_BYTES) {
-			return b;
+			return rejectLegacyBuiltin(b);
 		}
 		throw new IllegalStateException("MUGSUN_API_KEY 格式不对：须为 32 位 hex，或带填充的标准 base64 且解码后正好 16 字节，拒绝启动");
 	}
 
-	static boolean isLegacyBuiltin(String s) {
+	/** 对解码后的 16 字节算 SHA-256，与旧内置默认值比对；hex、base64、legacy 任何写法都拒绝 */
+	private static byte[] rejectLegacyBuiltin(byte[] key) {
+		if (isLegacyBuiltin(key)) {
+			throw new IllegalStateException("MUGSUN_API_KEY 等于已删除的旧内置默认值，拒绝启动："
+				+ "请换成新密钥（openssl rand -hex 16），或删掉该配置让系统自动生成");
+		}
+		return key;
+	}
+
+	static boolean isLegacyBuiltin(byte[] key) {
 		try {
-			byte[] d = java.security.MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8));
+			byte[] d = java.security.MessageDigest.getInstance("SHA-256").digest(key);
 			return HexFormat.of().formatHex(d).equals(LEGACY_BUILTIN_SHA256);
 		} catch (java.security.NoSuchAlgorithmException e) {
 			throw new IllegalStateException(e);

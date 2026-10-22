@@ -147,12 +147,29 @@ class ApiCryptoServiceTest {
 	}
 
 	@Test
-	@DisplayName("配置值等于已删除的旧内置默认值：拒绝启动")
+	@DisplayName("旧内置默认值 legacy 写法（16 个字符原样）：拒绝启动")
 	void legacyBuiltinRejected() {
 		String legacy = "mugsun-api-" + "key16";
 		assertThatThrownBy(newService(legacy, home)::init)
 			.isInstanceOf(IllegalStateException.class).hasMessageContaining("旧内置默认值");
 		assertThatThrownBy(newService(" " + legacy + " ", home)::init)
+			.isInstanceOf(IllegalStateException.class).hasMessageContaining("旧内置默认值");	}
+
+	@Test
+	@DisplayName("旧内置默认值写成 hex：按解码后字节比对，拒绝启动")
+	void legacyBuiltinAsHexRejected() {
+		String hex = HexFormat.of().formatHex(("mugsun-api-" + "key16").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		for (String v : List.of(hex, hex.toUpperCase())) {
+			assertThatThrownBy(newService(v, home)::init)
+				.isInstanceOf(IllegalStateException.class).hasMessageContaining("旧内置默认值");
+		}
+	}
+
+	@Test
+	@DisplayName("旧内置默认值写成 base64：按解码后字节比对，拒绝启动")
+	void legacyBuiltinAsBase64Rejected() {
+		String b64 = Base64.getEncoder().encodeToString(("mugsun-api-" + "key16").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		assertThatThrownBy(newService(b64, home)::init)
 			.isInstanceOf(IllegalStateException.class).hasMessageContaining("旧内置默认值");
 	}
 

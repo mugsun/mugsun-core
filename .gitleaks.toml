@@ -7,7 +7,8 @@
 useDefault = true
 
 [[allowlists]]
-# 仅历史放行：旧版 ApiCryptoService 里已删除的开发回落值，只在下面两个历史 commit 出现；
+# 仅对历史 commit 生效：旧版 ApiCryptoService 里已删除的开发回落值，只在下面两个历史 commit 出现；
+# 不在仓库里写出旧值（无 regexes）。安全官 2026-10-22 批准。
 # commit + 文件 + 规则同时匹配（AND）才放行，当前及以后的提交不受此条影响。
 description = "历史提交里已删除的接口加密开发回落值（generic-api-key），仅限列出的 commit"
 targetRules = ["generic-api-key"]

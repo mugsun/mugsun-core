@@ -132,4 +132,31 @@ class LocalKeyFilesTest {
 			logger.detachAppender(appender);
 		}
 	}
+
+	@Test
+	@DisplayName("密钥目录是符号链接（如指向挂载卷）：照常启动；真实目录不安全时 WARN 写出原路径和真实路径")
+	void symlinkedDirAllowed() throws Exception {
+		Path realDir = tmp.resolve("volume");
+		Files.createDirectories(realDir);
+		Path link = tmp.resolve("home-link");
+		Files.createSymbolicLink(link, realDir);
+		org.junit.jupiter.api.Assumptions.assumeTrue(Files.getFileStore(realDir).supportsFileAttributeView("posix"));
+		Files.setPosixFilePermissions(realDir, PosixFilePermissions.fromString("rwxrwxrwx"));
+		ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(LocalKeyFiles.class);
+		var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+		appender.start();
+		logger.addAppender(appender);
+		try {
+			var l = LocalKeyFiles.loadOrCreate(link.resolve("k.key"), () -> "knew", v -> v.startsWith("k"), "测试密钥");
+			assertThat(l.created()).isTrue();
+			assertThat(realDir.resolve("k.key")).exists();
+			String real = realDir.toRealPath().toString();
+			assertThat(appender.list).anyMatch(e -> e.getFormattedMessage().contains("可写")
+				&& e.getFormattedMessage().contains(link.toString()) && e.getFormattedMessage().contains(real));
+			var again = LocalKeyFiles.loadOrCreate(link.resolve("k.key"), () -> "kother", v -> v.startsWith("k"), "测试密钥");
+			assertThat(again.content()).isEqualTo("knew");
+		} finally {
+			logger.detachAppender(appender);
+		}
+	}
 }

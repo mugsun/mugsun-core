@@ -197,20 +197,25 @@ public final class LocalKeyFiles {
 		}
 	}
 
-	/** 已存在目录的属主不是当前用户，或组/其他用户可写：打 WARN，不拒绝启动 */
+	/**
+	 * 目录属主不是当前用户，或组/其他用户可写：打 WARN，不拒绝启动。
+	 * 目录本身可以是符号链接（如 MUGSUN_HOME 指向挂载卷），先 toRealPath 解析出真实目录再检查。
+	 */
 	static void warnIfDirUnsafe(Path dir, String label) {
 		try {
-			if (!posix(dir)) {
+			Path real = dir.toRealPath();
+			String where = real.equals(dir) ? dir.toString() : dir + "（真实路径 " + real + "）";
+			if (!posix(real)) {
 				return;
 			}
 			String me = System.getProperty("user.name");
-			String owner = Files.getOwner(dir, LinkOption.NOFOLLOW_LINKS).getName();
+			String owner = Files.getOwner(real, LinkOption.NOFOLLOW_LINKS).getName();
 			if (me != null && !me.equals(owner)) {
-				log.warn("{}目录属主是 {}，不是当前用户 {}，请检查：{}", label, owner, me, dir);
+				log.warn("{}目录属主是 {}，不是当前用户 {}，请检查：{}", label, owner, me, where);
 			}
-			Set<PosixFilePermission> perms = Files.getPosixFilePermissions(dir, LinkOption.NOFOLLOW_LINKS);
+			Set<PosixFilePermission> perms = Files.getPosixFilePermissions(real, LinkOption.NOFOLLOW_LINKS);
 			if (perms.contains(PosixFilePermission.GROUP_WRITE) || perms.contains(PosixFilePermission.OTHERS_WRITE)) {
-				log.warn("{}目录组或其他用户可写（{}），建议 chmod 700：{}", label, PosixFilePermissions.toString(perms), dir);
+				log.warn("{}目录组或其他用户可写（{}），建议 chmod 700：{}", label, PosixFilePermissions.toString(perms), where);
 			}
 		} catch (IOException | UnsupportedOperationException e) {
 			log.warn("读不到{}目录的属主或权限，没法确认是否安全：{}", label, dir);

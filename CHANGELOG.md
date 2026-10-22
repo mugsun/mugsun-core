@@ -10,12 +10,18 @@
 
 - 开发版本改为 `0.2.0-SNAPSHOT`；mugsun-boot 依赖这个版本
 
-- 接口加密去掉内置密钥，改为 SM4-GCM；升级后必须配置 `MUGSUN_API_KEY`
-  - 未配置时默认拒绝启动；仅显式 `allow-ephemeral-keys=true` 用临时密钥
+- 接口加密去掉内置密钥，改为 SM4-GCM；不配也能启动，`MUGSUN_API_KEY` 可选覆盖
+  - 未配置时首次启动生成 16 字节密钥，存 `~/.mugsun/api-transport.key`
+  - 文件 600、目录 700，原子写入，文件锁防并发首启，重启复用
+  - 目录可用 `mugsun.home` / `MUGSUN_HOME` 覆盖；日志只写路径
+  - 权限比 600 宽、非 POSIX、容器内未配密钥时打 WARN，不拒绝启动
+  - Docker 不挂卷或多实例部署必须配 `MUGSUN_API_KEY` 或挂共享卷
+  - 配置值等于已删除的旧内置默认值时拒绝启动
+  - 移除 `allow-ephemeral-keys`；`strict-keys` 不再影响接口加密
+  - 新增 `transportKeyHex()`，只供已登录会话的启动下发接口使用
   - 密钥须为 32 位 hex 或带填充的 16 字节标准 base64，不补零不截断
   - 密文改为 base64(IV 12 字节 ‖ 密文 ‖ 标签)，旧 CBC 密文不再兼容
-  - `strict-keys` 保留，接口加密侧只作否决：为 true 时拒绝临时密钥
-  - 解密失败统一返回同一错误；只是传输混淆，不能代替 TLS
+  - 解密失败统一返回同一错误；只是传输混淆，不能代替 HTTPS
   - 不防重放、不绑定接口（暂无 AAD）
   - `encrypt(null)`、`decrypt(null)` 都返回 null，不再抛异常
   - 跨端向量补 4 条：U+3000、U+2028 被 strip 去掉，NBSP、BOM 不去判非法

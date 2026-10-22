@@ -69,27 +69,32 @@ mvn clean install -DskipTests
 
 发布至 Central：对本仓库打 GitHub Release，或手动运行 Actions 工作流 **Publish to Maven Central**（`workflow_dispatch` / `release` published）。本地等价命令为 `mvn -Prelease clean deploy -DskipTests`（须配置 Portal 令牌与 GPG）。
 
-## 接口加密配置（不兼容变更）
+## 接口加密配置（开箱即用、可选覆盖）
 
 `mugsun-starter-web` 的 `@ApiDecrypt`/`@ApiEncrypt` 用 SM4-GCM，带完整性校验。
 
-**这只是传输混淆，不能代替 TLS。** 对称密钥要下发到浏览器，对客户端不保密。
+**这只是传输混淆，不能代替 HTTPS。** 对称密钥要下发到浏览器，对客户端不保密。
 
 不防重放、不绑定接口：密文没有绑定方法和路径，可被原样重发或搬到另一个加密接口。
 
 | 配置 | 默认 | 说明 |
 |---|---|---|
-| `mugsun.crypto.api-key` | 无 | 环境变量 `MUGSUN_API_KEY`，必填 |
-| `mugsun.crypto.strict-keys` | `false` | 已有开关；接口加密侧只作否决：为 true 时连临时密钥也拒绝 |
-| `mugsun.crypto.allow-ephemeral-keys` | `false` | 缺密钥时生成进程内临时密钥 |
+| `mugsun.crypto.api-key` | 空 | 环境变量 `MUGSUN_API_KEY`；可选，配了就用配的 |
+| `mugsun.home` | `~/.mugsun` | 环境变量 `MUGSUN_HOME`；自动生成的密钥文件放这里 |
 
-- 升级后必须配置 `MUGSUN_API_KEY`，否则应用拒绝启动。
-- 密钥须为 32 位 hex，或带填充的标准 base64 且解码后正好 16 字节。
-- 格式不对就拒绝启动，不再补零或截断。
-- 生成示例：`openssl rand -hex 16`。
-- 临时密钥只用于本地开发和测试。
-- 只需设 `allow-ephemeral-keys=true`；`strict-keys=true` 时仍拒绝。
-- 临时密钥重启后会变，多实例之间不互通。
+- 不配也能启动：首次启动用 SecureRandom 生成 16 字节密钥，
+  写入 `<mugsun.home>/api-transport.key`（目录 700、文件 600），之后重启复用。
+- 写入方式：先写临时文件再原子 rename；并发首启用文件锁，只生成一次。
+- 日志只写文件路径，不写密钥；文件权限比 600 宽时打 WARN，不拒绝启动。
+- 配了 `MUGSUN_API_KEY` 时：须为 32 位 hex，或带填充的标准 base64 且解码后正好 16 字节，
+  格式不对就拒绝启动，不补零也不截断。生成示例：`openssl rand -hex 16`。
+- 等于已删除的旧内置默认值时拒绝启动。
+- 以下部署必须配 `MUGSUN_API_KEY` 或给 `mugsun.home` 挂共享卷：
+  - Docker 没给该目录挂卷：每次重启都会换新密钥；
+  - 多实例：各自生成的密钥不一致，互相解不开。
+  检测到容器环境（`/.dockerenv`、cgroup）且没配密钥时打 WARN。
+- 这把密钥只用于传输混淆，会下发给已登录的前端；不得用于落库加密、派生签名，也不能和签名密钥共用。
+- `allow-ephemeral-keys` 已移除；`strict-keys` 不再影响接口加密。
 - 密文格式：`base64(IV 12 字节 ‖ 密文 ‖ 标签 16 字节)`，必须带填充。
 - 跨端测试数据：`mugsun-starter-web/src/test/resources/crypto/api-crypto-vectors.json`。
 - 旧的 CBC 密文不再兼容，前端要同步改成 SM4-GCM。

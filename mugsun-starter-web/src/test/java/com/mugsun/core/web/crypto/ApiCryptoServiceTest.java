@@ -3,11 +3,17 @@ package com.mugsun.core.web.crypto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
@@ -18,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * 接口 SM4-GCM：密文 = Hex(IV_12) ‖ Hex(密文 ‖ 标签_16)。
- * 守住：默认拒绝启动、显式临时密钥、密钥格式、篡改即失败且错误统一、源码无写死密钥。
+ * 守住：未配置自动生成并复用、配置优先、密钥格式、篡改即失败且错误统一、源码无写死密钥。
  */
 class ApiCryptoServiceTest {
 
@@ -34,11 +40,21 @@ class ApiCryptoServiceTest {
 
 	private ApiCryptoService service;
 
+	@TempDir
+	static Path sharedHome;
+
+	@TempDir
+	Path home;
+
+	/** strict/ephemeral 两个旧参数已无作用，保留签名只为少改用例；home 指向临时目录，绝不碰 ~/.mugsun */
 	private static ApiCryptoService newService(String key, boolean strict, boolean ephemeral) {
+		return newService(key, sharedHome);
+	}
+
+	private static ApiCryptoService newService(String key, Path home) {
 		ApiCryptoService s = new ApiCryptoService();
 		ReflectionTestUtils.setField(s, "apiKey", key);
-		ReflectionTestUtils.setField(s, "strictKeys", strict);
-		ReflectionTestUtils.setField(s, "allowEphemeralKeys", ephemeral);
+		ReflectionTestUtils.setField(s, "home", home.toString());
 		return s;
 	}
 
@@ -81,28 +97,96 @@ class ApiCryptoServiceTest {
 	}
 
 	@Test
-	@DisplayName("缺密钥：默认拒绝启动")
-	void missingKeyRejectedByDefault() {
-		assertThatThrownBy(newService("", true, false)::init)
-			.isInstanceOf(IllegalStateException.class).hasMessageContaining("MUGSUN_API_KEY");
-		assertThatThrownBy(newService(null, false, false)::init)
-			.isInstanceOf(IllegalStateException.class).hasMessageContaining("MUGSUN_API_KEY");
+	@DisplayName("未配置：首次启动生成 16 字节密钥，文件 600、目录 700，来源为自动生成")
+	void missingKeyGeneratesLocalFile() throws IOException {
+		Path dir = home.resolve("nested/.mugsun");
+		ApiCryptoService s = newService("", dir);
+		s.init();
+		Path f = dir.resolve(ApiCryptoService.LOCAL_KEY_FILE);
+		assertThat(f).exists();
+		assertThat(s.keySource()).isEqualTo(ApiCryptoService.KeySource.AUTO_GENERATED);
+		assertThat(s.localKeyFile()).isEqualTo(f);
+		String content = Files.readString(f).strip();
+		assertThat(content).matches("[0-9a-f]{32}").isEqualTo(s.transportKeyHex());
+		if (Files.getFileStore(f).supportsFileAttributeView("posix")) {
+			assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(f))).isEqualTo("rw-------");
+			assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(dir))).isEqualTo("rwx------");
+		}
+		assertThat(s.decrypt(s.encrypt("auto"))).isEqualTo("auto");
+		// 目录里不留临时文件
+		try (Stream<Path> files = Files.list(dir)) {
+			assertThat(files.map(p -> p.getFileName().toString())).noneMatch(n -> n.endsWith(".tmp"));
+		}
 	}
 
 	@Test
-	@DisplayName("启动组合：strict=true 缺密钥拒绝（不论 allow）；strict=false 且 allow=false 缺密钥也拒绝")
-	void startupCombinations() {
-		for (boolean allow : new boolean[] {false, true}) {
-			assertThatThrownBy(newService("", true, allow)::init).as("strict=true allow=%s", allow)
-				.isInstanceOf(IllegalStateException.class).hasMessageContaining("MUGSUN_API_KEY");
-		}
-		assertThatThrownBy(newService("", false, false)::init).as("strict=false allow=false")
-			.isInstanceOf(IllegalStateException.class).hasMessageContaining("allow-ephemeral-keys");
-		// 配了合法密钥时 strict/allow 怎么组合都能启动
-		for (boolean strict : new boolean[] {false, true}) {
-			for (boolean allow : new boolean[] {false, true}) {
-				newService(HEX_KEY, strict, allow).init();
+	@DisplayName("重启复用同一把密钥：第二次启动能解开第一次的密文")
+	void restartReusesKey() {
+		ApiCryptoService first = newService(null, home);
+		first.init();
+		String cipher = first.encrypt("reuse");
+		ApiCryptoService second = newService("  ", home);
+		second.init();
+		assertThat(second.transportKeyHex()).isEqualTo(first.transportKeyHex());
+		assertThat(second.decrypt(cipher)).isEqualTo("reuse");
+	}
+
+	@Test
+	@DisplayName("配置值优先：有本地文件也用配置值，且不新建文件")
+	void configuredKeyWins() {
+		ApiCryptoService auto = newService("", home);
+		auto.init();
+		ApiCryptoService s = newService(HEX_KEY, home);
+		s.init();
+		assertThat(s.keySource()).isEqualTo(ApiCryptoService.KeySource.CONFIGURED);
+		assertThat(s.localKeyFile()).isNull();
+		assertThat(s.transportKeyHex()).isEqualTo(HEX_KEY.toLowerCase()).isNotEqualTo(auto.transportKeyHex());
+		Path other = home.resolve("unused");
+		newService(HEX_KEY, other).init();
+		assertThat(other).doesNotExist();
+	}
+
+	@Test
+	@DisplayName("配置值等于已删除的旧内置默认值：拒绝启动")
+	void legacyBuiltinRejected() {
+		String legacy = "mugsun-api-" + "key16";
+		assertThatThrownBy(newService(legacy, home)::init)
+			.isInstanceOf(IllegalStateException.class).hasMessageContaining("旧内置默认值");
+		assertThatThrownBy(newService(" " + legacy + " ", home)::init)
+			.isInstanceOf(IllegalStateException.class).hasMessageContaining("旧内置默认值");
+	}
+
+	@Test
+	@DisplayName("本地文件被改坏：拒绝启动，不悄悄换钥")
+	void corruptLocalFileRejected() throws IOException {
+		Files.writeString(home.resolve(ApiCryptoService.LOCAL_KEY_FILE), "not-a-key\n");
+		assertThatThrownBy(newService("", home)::init).isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining(ApiCryptoService.LOCAL_KEY_FILE);
+	}
+
+	@Test
+	@DisplayName("日志不含密钥：自动生成和配置两种情况，所有日志都不出现密钥 hex/base64")
+	void logsNeverContainKey() {
+		Logger logger = (Logger) LoggerFactory.getLogger(ApiCryptoService.class);
+		Logger filesLogger = (Logger) LoggerFactory.getLogger(LocalKeyFiles.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		filesLogger.addAppender(appender);
+		try {
+			ApiCryptoService auto = newService("", home);
+			auto.init();
+			ApiCryptoService conf = newService(HEX_KEY, home);
+			conf.init();
+			assertThat(appender.list).isNotEmpty();
+			assertThat(appender.list).anyMatch(e -> e.getFormattedMessage().contains(home.toString()));
+			for (String secret : List.of(auto.transportKeyHex(), HEX_KEY,
+				Base64.getEncoder().encodeToString(HexFormat.of().parseHex(auto.transportKeyHex())))) {
+				assertThat(appender.list).noneMatch(e -> e.getFormattedMessage().toLowerCase().contains(secret.toLowerCase()));
 			}
+		} finally {
+			logger.detachAppender(appender);
+			filesLogger.detachAppender(appender);
 		}
 	}
 
@@ -117,27 +201,6 @@ class ApiCryptoServiceTest {
 	void decryptNullReturnsNull() {
 		assertThat(service.decrypt(null)).isNull();
 		assertThatThrownBy(() -> service.decrypt("")).isInstanceOf(IllegalArgumentException.class);
-	}
-
-	@Test
-	@DisplayName("strict-keys 开启时，即使 allow-ephemeral-keys=true 也拒绝启动")
-	void strictBeatsEphemeral() {
-		assertThatThrownBy(newService("  ", true, true)::init).isInstanceOf(IllegalStateException.class);
-	}
-
-	@Test
-	@DisplayName("allow-ephemeral-keys=true：能启动，两次启动密钥不同")
-	void ephemeralKeyDiffersPerStart() {
-		ApiCryptoService first = newService("", false, true);
-		first.init();
-		ApiCryptoService second = newService("", false, true);
-		second.init();
-		String cipher = first.encrypt("eph");
-		assertThat(first.decrypt(cipher)).isEqualTo("eph");
-		assertThatThrownBy(() -> second.decrypt(cipher)).isInstanceOf(IllegalArgumentException.class);
-		Object k1 = ReflectionTestUtils.getField(first, "key");
-		Object k2 = ReflectionTestUtils.getField(second, "key");
-		assertThat(k1).isNotEqualTo(k2);
 	}
 
 	@Test
@@ -166,7 +229,8 @@ class ApiCryptoServiceTest {
 		}
 		assertThat(root.path("invalidKeys").size()).isGreaterThan(0);
 		for (var v : root.path("invalidKeys")) {
-			assertThatThrownBy(newService(v.path("input").asText(), false, false)::init)
+			// 空白输入在启动时走自动生成；向量只验解析规则本身
+			assertThatThrownBy(() -> ApiCryptoService.parseKey(v.path("input").asText()))
 				.as(v.path("name").asText()).isInstanceOf(IllegalStateException.class);
 		}
 		assertThat(root.path("encryptVectors").size()).isGreaterThan(0);

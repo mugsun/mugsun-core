@@ -10,6 +10,7 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.Provider;
 import java.security.SecureRandom;
@@ -23,10 +24,14 @@ import java.util.regex.Pattern;
  * 跨端测试数据见测试资源 {@code crypto/api-crypto-vectors.json}（与 mugsun-pc 共用）。
  * <p><b>只是传输混淆，不能代替 TLS</b>：对称密钥要下发到浏览器，对客户端不保密。
  * <p>不防重放、不绑定接口：密文没有 AAD，可被原样重发或搬到另一个加密接口。
- * <p>密钥经 {@code mugsun.crypto.api-key}（环境变量 {@code MUGSUN_API_KEY}）注入，
- * 必须是 32 位 hex 或解码后正好 16 字节的 base64，否则拒绝启动。
- * 未配置时默认拒绝启动；仅当 {@code allow-ephemeral-keys=true} 时生成只在本进程内有效的随机密钥
- * （{@code strict-keys=true} 时仍拒绝）。
+ * <p>密钥来源（约定优于配置，没配也能启动）：
+ * <ol>
+ *   <li>配了 {@code mugsun.crypto.api-key}（环境变量 {@code MUGSUN_API_KEY}）就用配的，格式校验严格：
+ *       32 位 hex 或解码后正好 16 字节的规范 base64，不对就拒绝启动；等于旧内置默认值也拒绝；</li>
+ *   <li>没配时用本地自动生成的密钥文件 {@code <mugsun.home>/api-transport.key}（默认 {@code ~/.mugsun}）：
+ *       首次启动 SecureRandom 生成 16 字节，之后重启复用，见 {@link LocalKeyFiles}。</li>
+ * </ol>
+ * <p>这把密钥只用于传输混淆，会下发给已登录的前端；不得用于落库加密、派生签名，也不得与签名密钥共用。
  */
 public class ApiCryptoService {
 
@@ -35,45 +40,79 @@ public class ApiCryptoService {
 	static final int KEY_BYTES = 16;
 	static final int IV_BYTES = 12;
 	static final int TAG_BITS = 128;
+	/** 本地自动生成的接口密钥文件名（与签名密钥分开存） */
+	public static final String LOCAL_KEY_FILE = "api-transport.key";
 	private static final Pattern HEX_KEY = Pattern.compile("^[0-9a-fA-F]{32}$");
 	private static final Pattern B64 = Pattern.compile("^[A-Za-z0-9+/]+={0,2}$");
+	/** 已删除的旧内置默认值的 SHA-256（源码里不再出现原值）；配置值等于它直接拒绝启动 */
+	private static final String LEGACY_BUILTIN_SHA256 = "e389b2cbf641066e56923b93184da1c45ffb2acbcc2285015bddd9cbf9297c1c";
 	/** 解密失败一律同一个错误，不区分 IV、标签、格式，避免 oracle */
 	static final String DECRYPT_FAILED = "接口密文无效";
 	private static final Provider BC = new BouncyCastleProvider();
 
+	/** 密钥从哪来 */
+	public enum KeySource {
+		/** 配置项 / 环境变量 MUGSUN_API_KEY */
+		CONFIGURED,
+		/** 本地自动生成并持久化的文件 */
+		AUTO_GENERATED
+	}
+
 	@Value("${mugsun.crypto.api-key:}")
 	private String apiKey;
 
-	/**
-	 * 已有的生产开关（boot 的 prod 配置设为 true，同时管 SM2/SM4 等密钥）。
-	 * 对接口加密只起一票否决：为 true 时即使 allow-ephemeral-keys=true 也拒绝启动。
-	 * 接口加密侧只作否决：防止 dev 配置或 allow-ephemeral-keys 误进生产。
-	 */
-	@Value("${mugsun.crypto.strict-keys:false}")
-	private boolean strictKeys;
-
-	/** 显式允许：缺密钥时生成只在本进程内有效的随机密钥（仅本地开发/测试用） */
-	@Value("${mugsun.crypto.allow-ephemeral-keys:false}")
-	private boolean allowEphemeralKeys;
+	/** 本地密钥目录；环境变量 MUGSUN_HOME 也能覆盖 */
+	@Value("${mugsun.home:}")
+	private String home;
 
 	private SecretKeySpec key;
+	private KeySource keySource;
+	private Path localKeyFile;
 	private final SecureRandom secureRandom = new SecureRandom();
 
 	@PostConstruct
 	public void init() {
-		if (apiKey == null || apiKey.isBlank()) {
-			if (strictKeys || !allowEphemeralKeys) {
-				throw new IllegalStateException("未配置接口加密密钥 MUGSUN_API_KEY（32 位 hex 或带填充的 16 字节 base64），"
-					+ "拒绝启动；仅本地开发可设 mugsun.crypto.allow-ephemeral-keys=true");
-			}
-			byte[] k = new byte[KEY_BYTES];
-			secureRandom.nextBytes(k);
-			key = new SecretKeySpec(k, "SM4");
-			log.warn("未配置 MUGSUN_API_KEY，已生成只在本进程内有效的临时接口密钥："
-				+ "重启后密钥会变，多实例之间不互通，仅限本地开发/测试");
+		if (apiKey != null && !apiKey.isBlank()) {
+			key = new SecretKeySpec(parseKey(apiKey), "SM4");
+			keySource = KeySource.CONFIGURED;
+			log.info("接口加密使用配置的 MUGSUN_API_KEY");
 			return;
 		}
-		key = new SecretKeySpec(parseKey(apiKey), "SM4");
+		Path file = LocalKeyFiles.resolveHome(home).resolve(LOCAL_KEY_FILE);
+		LocalKeyFiles.Loaded loaded = LocalKeyFiles.loadOrCreate(file, () -> {
+			byte[] k = new byte[KEY_BYTES];
+			secureRandom.nextBytes(k);
+			return HexFormat.of().formatHex(k);
+		}, v -> HEX_KEY.matcher(v).matches(), "接口加密密钥");
+		key = new SecretKeySpec(HexFormat.of().parseHex(loaded.content()), "SM4");
+		keySource = KeySource.AUTO_GENERATED;
+		localKeyFile = loaded.file();
+		if (loaded.created()) {
+			log.info("未配置 MUGSUN_API_KEY，已自动生成接口加密密钥并保存到 {}", loaded.file());
+		}
+		log.warn("接口加密当前使用自动生成的密钥（文件 {}）。Docker 不给该目录挂卷时每次重启都会换新密钥；"
+			+ "多实例各自生成会导致密钥不一致、解密失败：这两种部署请配置 MUGSUN_API_KEY 或挂共享卷", loaded.file());
+		if (LocalKeyFiles.inContainer()) {
+			log.warn("检测到容器环境且没配 MUGSUN_API_KEY：请配置 MUGSUN_API_KEY，或给 {} 挂持久卷", loaded.file().getParent());
+		}
+	}
+
+	/** 当前密钥来源 */
+	public KeySource keySource() {
+		return keySource;
+	}
+
+	/** 自动生成时的密钥文件路径；用配置值时为 null */
+	public Path localKeyFile() {
+		return localKeyFile;
+	}
+
+	/**
+	 * 传输密钥的 32 位小写 hex，只供「已登录会话的启动下发接口」使用，不得写日志或审计。
+	 * 配了 MUGSUN_API_KEY 时就是配置值（统一成 hex，字节相同）。
+	 */
+	public String transportKeyHex() {
+		return HexFormat.of().formatHex(key.getEncoded());
 	}
 
 	/**
@@ -86,6 +125,10 @@ public class ApiCryptoService {
 		if (s.isEmpty()) {
 			throw new IllegalStateException("未配置接口加密密钥 MUGSUN_API_KEY，拒绝启动");
 		}
+		if (isLegacyBuiltin(s)) {
+			throw new IllegalStateException("MUGSUN_API_KEY 等于已删除的旧内置默认值，拒绝启动："
+				+ "请换成新密钥（openssl rand -hex 16），或删掉该配置让系统自动生成");
+		}
 		if (HEX_KEY.matcher(s).matches()) {
 			return HexFormat.of().parseHex(s);
 		}
@@ -94,6 +137,15 @@ public class ApiCryptoService {
 			return b;
 		}
 		throw new IllegalStateException("MUGSUN_API_KEY 格式不对：须为 32 位 hex，或带填充的标准 base64 且解码后正好 16 字节，拒绝启动");
+	}
+
+	static boolean isLegacyBuiltin(String s) {
+		try {
+			byte[] d = java.security.MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8));
+			return HexFormat.of().formatHex(d).equals(LEGACY_BUILTIN_SHA256);
+		} catch (java.security.NoSuchAlgorithmException e) {
+			throw new IllegalStateException(e);
+		}
 	}
 
 	/** 明文 → base64(IV ‖ 密文 ‖ 标签)；每次 CSPRNG 随机 12 字节 IV；null 原样返回 null */

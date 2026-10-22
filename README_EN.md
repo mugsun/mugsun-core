@@ -69,24 +69,27 @@ mvn clean install -DskipTests
 
 Publishing to Central: create a GitHub Release on this repository, or run the **Publish to Maven Central** Actions workflow (`workflow_dispatch` / `release` published). Local equivalent: `mvn -Prelease clean deploy -DskipTests` (Portal token and GPG required).
 
-## API crypto configuration (breaking change)
+## API crypto configuration (works out of the box, optional override)
 
 `@ApiDecrypt`/`@ApiEncrypt` in `mugsun-starter-web` use SM4-GCM with integrity protection.
 
-**This is transport obfuscation only and does not replace TLS.** The symmetric key is shipped to the browser, so it is not secret from clients.
+**This is transport obfuscation only and does not replace HTTPS.** The symmetric key is shipped to the browser, so it is not secret from clients.
 
 No replay protection and no endpoint binding: ciphertext is not bound to method or path, so it can be replayed or moved to another encrypted endpoint.
 
 | Property | Default | Notes |
 |---|---|---|
-| `mugsun.crypto.api-key` | none | env `MUGSUN_API_KEY`, required |
-| `mugsun.crypto.strict-keys` | `false` | existing switch; for API crypto it only vetoes: when true even ephemeral keys are refused |
-| `mugsun.crypto.allow-ephemeral-keys` | `false` | generate a per-process key when missing |
+| `mugsun.crypto.api-key` | empty | env `MUGSUN_API_KEY`; optional, used when set |
+| `mugsun.home` | `~/.mugsun` | env `MUGSUN_HOME`; where the auto-generated key file lives |
 
-- After upgrading you must set `MUGSUN_API_KEY`, otherwise the application refuses to start.
-- The key must be 32 hex chars, or padded standard base64 that decodes to exactly 16 bytes. Anything else fails startup; no zero-padding or truncation.
-- Generate one with `openssl rand -hex 16`.
-- Ephemeral keys are for local dev and tests only and need only `allow-ephemeral-keys=true` (still refused when `strict-keys=true`). They change on restart and differ between instances.
+- Starts without configuration: on first start a 16-byte key is generated with SecureRandom and written to `<mugsun.home>/api-transport.key` (directory 700, file 600); later restarts reuse it.
+- Written to a temp file and atomically renamed; concurrent first starts are serialized with a file lock, so only one key is generated.
+- Logs show the file path only, never the key. A file wider than 600 logs a WARN but does not stop startup.
+- When `MUGSUN_API_KEY` is set it must be 32 hex chars, or padded standard base64 that decodes to exactly 16 bytes. Anything else fails startup; no zero-padding or truncation. Generate one with `openssl rand -hex 16`.
+- The removed old built-in default value is refused at startup.
+- These deployments must set `MUGSUN_API_KEY` or mount a shared volume at `mugsun.home`: Docker without a volume for that directory (a new key on every restart), and multiple instances (each generates its own key and they cannot decrypt each other). A WARN is logged when a container (`/.dockerenv`, cgroup) is detected and no key is set.
+- This key is for transport obfuscation only and is handed to logged-in frontends. Never use it for at-rest encryption or to derive signatures, and never share it with the signing key.
+- `allow-ephemeral-keys` is removed; `strict-keys` no longer affects API crypto.
 - Ciphertext format: `base64(IV 12 bytes ‖ ciphertext ‖ tag 16 bytes)`, padded standard base64. Shared vectors: `mugsun-starter-web/src/test/resources/crypto/api-crypto-vectors.json`. Old CBC ciphertext is no longer accepted; frontends must switch to SM4-GCM.
 - Every decryption failure returns the same error.
 

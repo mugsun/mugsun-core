@@ -38,13 +38,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class DuplicateKeyPrecedenceTest {
 
 	private static final String[] EPHEMERAL_KEYS = {
-		"mugsun.crypto.allow-ephemeral-keys=true"};
+		"mugsun.home=" + System.getProperty("java.io.tmpdir") + "/mugsun-test-home-" + ProcessHandle.current().pid()};
 
 	private final WebApplicationContextRunner runner = new WebApplicationContextRunner()
 		.withConfiguration(AutoConfigurations.of(DispatcherServletAutoConfiguration.class, WebMvcAutoConfiguration.class,
 			HttpMessageConvertersAutoConfiguration.class, JacksonAutoConfiguration.class,
 			MugsunWebAutoConfiguration.class, MugsunMybatisWebAutoConfiguration.class))
-		// ApiCryptoService 缺密钥默认拒绝启动；本测试与接口加密无关，用进程内临时密钥
+		// 本测试与接口加密无关；没配 api-key 时会自动生成密钥文件，mugsun.home 指到临时目录，不碰 ~/.mugsun
 		.withPropertyValues(EPHEMERAL_KEYS)
 		.withUserConfiguration(TestConfig.class);
 

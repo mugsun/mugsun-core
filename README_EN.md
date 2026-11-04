@@ -8,7 +8,7 @@ This repository is the shared kernel of the mugsun platform. It publishes a BOM,
 
 [Documentation](https://docs.mugsun.com/en/core/) · [Architecture](https://docs.mugsun.com/en/guide/architecture) · [Maven Central](https://central.sonatype.com/search?q=com.mugsun)
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.2.0--SNAPSHOT-blue)
 ![JDK](https://img.shields.io/badge/JDK-21-blue)
 ![Spring%20Boot](https://img.shields.io/badge/Spring%20Boot-3.5.13-brightgreen)
 ![Maven%20Central](https://img.shields.io/maven-central/v/com.mugsun/mugsun-starter-web)
@@ -18,19 +18,27 @@ This repository is the shared kernel of the mugsun platform. It publishes a BOM,
 
 | Item | Detail |
 | --- | --- |
-| Coordinates | `com.mugsun:mugsun-*:0.1.0` (published on [Maven Central](https://repo1.maven.org/maven2/com/mugsun/)) |
+| Coordinates | tip / development `com.mugsun:mugsun-*:0.2.0-SNAPSHOT` (see root `pom.xml`) |
+| Maven Central | currently only `0.1.0` (legacy release; old CBC etc.; not the tip; see [Central](https://repo1.maven.org/maven2/com/mugsun/)) |
 | Runtime | JDK 21; Maven 3.9+ |
 | Parent | Spring Boot 3.5.13 |
-| License | [MIT](./LICENSE) |
+| License | Source and tip: [MIT](./LICENSE). Published Central `0.1.0` artifacts were declared Apache-2.0 at release time. |
 | Docs | [docs.mugsun.com/en/core](https://docs.mugsun.com/en/core/) |
 
 Stack (per current POM): MyBatis-Flex 1.11.8, Sa-Token 1.44.0, JetCache, Hutool Crypto / BouncyCastle (API crypto), FastExcel, and related libraries — versions locked by `mugsun-bom`.
 
 ## Deployment
 
-Prefer Maven Central. Sibling `mvn install` is not required for normal consumption.
+The current tip / development version is `0.2.0-SNAPSHOT` (see root `pom.xml`). It is not on Maven Central.
+To follow the tip or integrate with the [mugsun-boot](https://github.com/mugsun/mugsun-boot) tip, install this repository into the local Maven repository first:
 
-Import the BOM in `dependencyManagement`, then declare starters as needed:
+```bash
+git clone https://github.com/mugsun/mugsun-core.git
+cd mugsun-core
+mvn -B clean install -DskipTests
+```
+
+Then import the BOM in the consumer's `dependencyManagement` and declare starters as needed (version matches the tip):
 
 ```xml
 <dependencyManagement>
@@ -38,7 +46,7 @@ Import the BOM in `dependencyManagement`, then declare starters as needed:
     <dependency>
       <groupId>com.mugsun</groupId>
       <artifactId>mugsun-bom</artifactId>
-      <version>0.1.0</version>
+      <version>0.2.0-SNAPSHOT</version>
       <type>pom</type>
       <scope>import</scope>
     </dependency>
@@ -57,15 +65,10 @@ Import the BOM in `dependencyManagement`, then declare starters as needed:
 </dependencies>
 ```
 
-For a runnable backend, use [mugsun-boot](https://github.com/mugsun/mugsun-boot). Full vertical slice: [Documentation · Getting started](https://docs.mugsun.com/en/guide/getting-started).
+Maven Central currently has only `0.1.0`. You may resolve it, but it is a legacy release (including old CBC behaviour) and must not be treated as the tip or as aligned with the current boot tip.
+To consume Central `0.1.0` only, change the version in the sample above to `0.1.0`. That path is not for tip development.
 
-**Local install** (offline use or Central sync fallback):
-
-```bash
-git clone https://github.com/mugsun/mugsun-core.git
-cd mugsun-core
-mvn clean install -DskipTests
-```
+For a runnable backend, use [mugsun-boot](https://github.com/mugsun/mugsun-boot). Walkthrough: [Documentation · Getting started](https://docs.mugsun.com/en/guide/getting-started).
 
 Publishing to Central: create a GitHub Release on this repository, or run the **Publish to Maven Central** Actions workflow (`workflow_dispatch` / `release` published). Local equivalent: `mvn -Prelease clean deploy -DskipTests` (Portal token and GPG required).
 
@@ -117,7 +120,7 @@ There is no `spring-boot:run` goal in this repository. Use [mugsun-boot](https:/
 **Provided**
 
 - BOM plus `mugsun-starter-web` / `mugsun-starter-mybatis` starters
-- Maven Central coordinates aligned with boot **0.1.0**
+- Tip is `0.2.0-SNAPSHOT` (local install required); Central currently has legacy `0.1.0` only
 - Sa-Token annotation auth interceptor, unified responses and service exceptions, API crypto, safe large-number serialization
 - Flex base entity and an explicit override for the older transitive `mybatis-spring`
 
@@ -134,11 +137,11 @@ Open-source line: `boot` · `core` · `pc` · `track` · [mugsun-docs](https://g
 
 | Repository | Relationship |
 | --- | --- |
-| [mugsun-boot](https://github.com/mugsun/mugsun-boot) | Primary consumer; depends via Central coordinates or local install |
+| [mugsun-boot](https://github.com/mugsun/mugsun-boot) | Primary consumer; tip depends on this repo at `0.2.0-SNAPSHOT` and requires a local install first |
 | [mugsun-pc](https://github.com/mugsun/mugsun-pc) | Admin console; not a direct dependency of this repository |
 | [mugsun-track](https://github.com/mugsun/mugsun-track) | Browser SDK; related indirectly through boot’s track module |
 | [mugsun-docs](https://github.com/mugsun/mugsun-docs) | Documentation site [docs.mugsun.com](https://docs.mugsun.com/) |
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](./LICENSE) for source and tip. Published Central `0.1.0` artifacts were declared Apache-2.0 at release time.

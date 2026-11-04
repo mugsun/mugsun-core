@@ -8,7 +8,7 @@
 
 [文档](https://docs.mugsun.com/core/) · [架构](https://docs.mugsun.com/guide/architecture) · [Maven Central](https://central.sonatype.com/search?q=com.mugsun)
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.2.0--SNAPSHOT-blue)
 ![JDK](https://img.shields.io/badge/JDK-21-blue)
 ![Spring%20Boot](https://img.shields.io/badge/Spring%20Boot-3.5.13-brightgreen)
 ![Maven%20Central](https://img.shields.io/maven-central/v/com.mugsun/mugsun-starter-web)
@@ -18,19 +18,27 @@
 
 | 项 | 说明 |
 | --- | --- |
-| 坐标 | `com.mugsun:mugsun-*:0.1.0`（已发布至 [Maven Central](https://repo1.maven.org/maven2/com/mugsun/)） |
+| 坐标 | tip / 开发版 `com.mugsun:mugsun-*:0.2.0-SNAPSHOT`（以根 `pom.xml` 为准） |
+| Maven Central | 现仅 `0.1.0`（旧发布，含旧 CBC 等，勿当 tip；见 [Central](https://repo1.maven.org/maven2/com/mugsun/)） |
 | 运行时 | JDK 21；Maven 3.9+ |
 | 父工程 | Spring Boot 3.5.13 |
-| 许可 | [MIT](./LICENSE) |
+| 许可 | 源码与 tip 为 [MIT](./LICENSE)；Central 上已发布的 `0.1.0` 构件在发布时声明为 Apache-2.0 |
 | 文档 | [docs.mugsun.com/core](https://docs.mugsun.com/core/) |
 
 技术组件（以当前 POM 为准）：MyBatis-Flex 1.11.8、Sa-Token 1.44.0、JetCache、Hutool Crypto / BouncyCastle（接口国密）、FastExcel 等，版本由 `mugsun-bom` 统一锁定。
 
 ## 部署
 
-业务工程优先从 Maven Central 引入，无需平级 `mvn install`。
+当前 tip / 开发版为 `0.2.0-SNAPSHOT`（以根 `pom.xml` 为准），不在 Maven Central。
+跟 tip 或与 [mugsun-boot](https://github.com/mugsun/mugsun-boot) tip 联调时，须先在本仓安装到本地仓库：
 
-在 `dependencyManagement` 中导入 BOM，再按需声明 Starter：
+```bash
+git clone https://github.com/mugsun/mugsun-core.git
+cd mugsun-core
+mvn -B clean install -DskipTests
+```
+
+然后在消费方的 `dependencyManagement` 中导入 BOM，再按需声明 Starter（版本与 tip 一致）：
 
 ```xml
 <dependencyManagement>
@@ -38,7 +46,7 @@
     <dependency>
       <groupId>com.mugsun</groupId>
       <artifactId>mugsun-bom</artifactId>
-      <version>0.1.0</version>
+      <version>0.2.0-SNAPSHOT</version>
       <type>pom</type>
       <scope>import</scope>
     </dependency>
@@ -57,15 +65,10 @@
 </dependencies>
 ```
 
-可运行后端见 [mugsun-boot](https://github.com/mugsun/mugsun-boot)。联调整条竖切见 [文档 · 快速开始](https://docs.mugsun.com/guide/getting-started)。
+Maven Central 现仅有 `0.1.0`。可以拉取，但是旧发布（含旧 CBC 等），不要当作 tip，也不要暗示与当前 boot tip 对齐。
+若只消费 Central 上的 `0.1.0`，把上面示例里的版本改成 `0.1.0` 即可；该路径不适用于跟 tip 开发。
 
-**本地 install（离线或未同步 Central 时的回退）：**
-
-```bash
-git clone https://github.com/mugsun/mugsun-core.git
-cd mugsun-core
-mvn clean install -DskipTests
-```
+可运行后端见 [mugsun-boot](https://github.com/mugsun/mugsun-boot)。联调说明见 [文档 · 快速开始](https://docs.mugsun.com/guide/getting-started)。
 
 发布至 Central：对本仓库打 GitHub Release，或手动运行 Actions 工作流 **Publish to Maven Central**（`workflow_dispatch` / `release` published）。本地等价命令为 `mvn -Prelease clean deploy -DskipTests`（须配置 Portal 令牌与 GPG）。
 
@@ -124,7 +127,7 @@ mugsun-core/
 **已提供**
 
 - BOM 与 `mugsun-starter-web` / `mugsun-starter-mybatis` 两个 Starter
-- 与 boot **0.1.0** 对齐的 Maven Central 坐标
+- tip 为 `0.2.0-SNAPSHOT`（须本地 install）；Central 现仅旧版 `0.1.0`
 - Sa-Token 注解鉴权拦截、统一响应与业务异常、接口国密加解密、大整数安全序列化
 - Flex 实体基类及对旧 `mybatis-spring` 的版本覆盖
 
@@ -141,11 +144,11 @@ mugsun-core/
 
 | 仓库 | 与本仓库的关系 |
 | --- | --- |
-| [mugsun-boot](https://github.com/mugsun/mugsun-boot) | 主要消费方；通过 Central 坐标或本地 install 引用本仓 |
+| [mugsun-boot](https://github.com/mugsun/mugsun-boot) | 主要消费方；当前 tip 依赖本仓 `0.2.0-SNAPSHOT`，须先本地 install |
 | [mugsun-pc](https://github.com/mugsun/mugsun-pc) | 管理端；不直接依赖本仓 |
 | [mugsun-track](https://github.com/mugsun/mugsun-track) | 浏览器 SDK；经 boot track 模块间接相关 |
 | [mugsun-docs](https://github.com/mugsun/mugsun-docs) | 文档站 [docs.mugsun.com](https://docs.mugsun.com/) |
 
 ## 许可
 
-[MIT](./LICENSE) · 版权见 [NOTICE](./NOTICE) · © 2026 北京定旭晨 / mugsun
+[MIT](./LICENSE)（源码与 tip）· Central 已发布的 `0.1.0` 构件在发布时为 Apache-2.0 · 版权见 [NOTICE](./NOTICE) · © 2026 北京定旭晨 / mugsun

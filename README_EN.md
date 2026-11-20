@@ -1,44 +1,25 @@
-![mugsun-core](https://raw.githubusercontent.com/mugsun/mugsun-docs/main/public/brand/banners/repos/mugsun-core-en.png)
-
 # mugsun-core
 
-[简体中文](./README.md) | English
+[中文](./README.md) | [Docs](https://docs.mugsun.com/en/core/) | [Changelog](./CHANGELOG.md)
 
-This repository is the shared kernel of the mugsun platform. It publishes a BOM, common utilities, and Spring Boot starters for business applications to consume via Maven coordinates. Unified response types, Sa-Token annotation auth, API crypto, and MyBatis-Flex base entities are assembled here. This repository does not expose a runnable HTTP entrypoint.
-
-[Documentation](https://docs.mugsun.com/en/core/) · [Architecture](https://docs.mugsun.com/en/guide/architecture) · [Maven Central](https://central.sonatype.com/search?q=com.mugsun)
-
-![Version](https://img.shields.io/badge/version-0.2.0--SNAPSHOT-blue)
-![JDK](https://img.shields.io/badge/JDK-21-blue)
-![Spring%20Boot](https://img.shields.io/badge/Spring%20Boot-3.5.13-brightgreen)
-![Maven%20Central](https://img.shields.io/maven-central/v/com.mugsun/mugsun-starter-web)
+[![CI](https://github.com/mugsun/mugsun-core/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mugsun/mugsun-core/actions/workflows/ci.yml)
+[![Maven Central](https://img.shields.io/maven-central/v/com.mugsun/mugsun-starter-web)](https://central.sonatype.com/search?q=com.mugsun)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-## Overview
+The shared library behind the mugsun backend: a BOM, a small utility module and two Spring Boot starters.
 
-| Item | Detail |
-| --- | --- |
-| Coordinates | tip / development `com.mugsun:mugsun-*:0.2.0-SNAPSHOT` (see root `pom.xml`) |
-| Maven Central | currently only `0.1.0` (legacy release; old CBC etc.; not the tip; see [Central](https://repo1.maven.org/maven2/com/mugsun/)) |
-| Runtime | JDK 21; Maven 3.9+ |
-| Parent | Spring Boot 3.5.13 |
-| License | Source and tip: [MIT](./LICENSE). Published Central `0.1.0` artifacts were declared Apache-2.0 at release time. |
-| Docs | [docs.mugsun.com/en/core](https://docs.mugsun.com/en/core/) |
+Add it and your endpoints get one response format, global exception handling and Sa-Token annotation checks. It is a library and does not run on its own. The runnable backend is [mugsun-boot](https://github.com/mugsun/mugsun-boot).
 
-Stack (per current POM): MyBatis-Flex 1.11.8, Sa-Token 1.44.0, JetCache, Hutool Crypto / BouncyCastle (API crypto), FastExcel, and related libraries — versions locked by `mugsun-bom`.
+## Install
 
-## Deployment
-
-The current tip / development version is `0.2.0-SNAPSHOT` (see root `pom.xml`). It is not on Maven Central.
-To follow the tip or integrate with the [mugsun-boot](https://github.com/mugsun/mugsun-boot) tip, install this repository into the local Maven repository first:
+The main branch is at `0.2.0-SNAPSHOT`, which is not on Maven Central yet, so install it into your local repository first. You need JDK 21 and Maven 3.9+.
 
 ```bash
-git clone https://github.com/mugsun/mugsun-core.git
-cd mugsun-core
+git clone https://github.com/mugsun/mugsun-core.git && cd mugsun-core
 mvn -B clean install -DskipTests
 ```
 
-Then import the BOM in the consumer's `dependencyManagement` and declare starters as needed (version matches the tip):
+Then import the BOM in your own project and declare the starters you use:
 
 ```xml
 <dependencyManagement>
@@ -65,83 +46,187 @@ Then import the BOM in the consumer's `dependencyManagement` and declare starter
 </dependencies>
 ```
 
-Maven Central currently has only `0.1.0`. You may resolve it, but it is a legacy release (including old CBC behaviour) and must not be treated as the tip or as aligned with the current boot tip.
-To consume Central `0.1.0` only, change the version in the sample above to `0.1.0`. That path is not for tip development.
+Maven Central only has the old `0.1.0`. Don't combine it with mugsun-boot from the main branch.
 
-For a runnable backend, use [mugsun-boot](https://github.com/mugsun/mugsun-boot). Walkthrough: [Documentation · Getting started](https://docs.mugsun.com/en/guide/getting-started).
+Its API encryption is not compatible with the main branch, and it was published under Apache-2.0.
 
-Publishing to Central: create a GitHub Release on this repository, or run the **Publish to Maven Central** Actions workflow (`workflow_dispatch` / `release` published). Local equivalent: `mvn -Prelease clean deploy -DskipTests` (Portal token and GPG required).
+The differences between the two versions are listed in the [upgrade notes](https://docs.mugsun.com/en/guide/upgrade/core-0-2-0).
 
-## API crypto configuration (works out of the box, optional override)
+## Write an endpoint
 
-`@ApiDecrypt`/`@ApiEncrypt` in `mugsun-starter-web` use SM4-GCM with integrity protection.
+```java
+@RestController
+@RequestMapping("/book")
+public class BookController {
 
-**This is transport obfuscation only and does not replace HTTPS.** The symmetric key is shipped to the browser, so it is not secret from clients.
+    private final BookService bookService;
 
-No replay protection and no endpoint binding: ciphertext is not bound to method or path, so it can be replayed or moved to another encrypted endpoint.
+    public BookController(BookService bookService) {
+        this.bookService = bookService;
+    }
 
-| Property | Default | Notes |
-|---|---|---|
-| `mugsun.crypto.api-key` | empty | env `MUGSUN_API_KEY`; optional, used when set |
-| `mugsun.home` | `~/.mugsun` | env `MUGSUN_HOME`; where the auto-generated key file lives |
-
-- Starts without configuration: on first start a 16-byte key is generated with SecureRandom and written to `<mugsun.home>/api-transport.key` (directory 700, file 600); later restarts reuse it.
-- Written to a temp file and atomically renamed; concurrent first starts are serialized with a file lock, so only one key is generated.
-- Logs show the file path only, never the key. A file wider than 600 logs a WARN but does not stop startup.
-- When `MUGSUN_API_KEY` is set it must be 32 hex chars, or padded standard base64 that decodes to exactly 16 bytes. Anything else fails startup; no zero-padding or truncation. Generate one with `openssl rand -hex 16`.
-- The removed old built-in default value is refused at startup.
-- These deployments must set `MUGSUN_API_KEY` or mount a shared volume at `mugsun.home`: Docker without a volume for that directory (a new key on every restart), and multiple instances (each generates its own key and they cannot decrypt each other). A WARN is logged when a container (`/.dockerenv`, cgroup) is detected and no key is set.
-- This key is for transport obfuscation only and is handed to logged-in frontends. Never use it for at-rest encryption or to derive signatures, and never share it with the signing key.
-- `allow-ephemeral-keys` is removed; `strict-keys` no longer affects API crypto.
-- Ciphertext format: `base64(IV 12 bytes ‖ ciphertext ‖ tag 16 bytes)`, padded standard base64. Shared vectors: `mugsun-starter-web/src/test/resources/crypto/api-crypto-vectors.json`. Old CBC ciphertext is no longer accepted; frontends must switch to SM4-GCM.
-- Every decryption failure returns the same error.
-
-## Composition
-
-```text
-mugsun-core/
-  mugsun-bom/            # version lock (incl. mybatis-spring → 3.0.5 override)
-  mugsun-core-tool/      # R / ResultCode / service exceptions / TreeUtil
-  mugsun-starter-web/    # global exceptions, Sa-Token annotation interceptor, ApiCrypto, SafeNumber, Excel
-  mugsun-starter-mybatis/ # MyBatis-Flex starter + BaseEntity (snowflake id, audit times, logic delete)
+    @SaCheckPermission("book:view")
+    @GetMapping("/{id}")
+    public R<BookVO> detail(@PathVariable Long id) {
+        BookVO book = bookService.detail(id);
+        if (book == null) {
+            throw new ServiceException("Book not found");
+        }
+        return R.data(book);
+    }
+}
 ```
 
-| Module | Role |
+When the book exists, the response looks like this:
+
+```json
+{
+  "code": 200,
+  "success": true,
+  "data": { "id": "277980892367867904", "title": "The Three-Body Problem" },
+  "msg": "操作成功",
+  "dataType": null
+}
+```
+
+`id` is a string. Any `Long` or `BigInteger` outside ±2^53 is serialised as a string, so long primary keys keep their precision in the browser. The built-in messages are in Chinese.
+
+You don't handle the other cases yourself. The starters turn them into the same format:
+
+| Case | HTTP status | `code` |
+| --- | --- | --- |
+| `ServiceException` thrown | 200 | 400, or any `ResultCode` you pass |
+| Validation failed | 400 | 400 |
+| Not signed in | 401 | 401 |
+| Missing permission or role, or `ForbiddenException` thrown | 403 | 403 |
+| Unknown URL | 404 | 404 |
+| Wrong HTTP method | 405 | 400 |
+| Unique constraint violated (needs `mugsun-starter-mybatis`) | 400 | 400 |
+| Any other uncaught exception | 500 | 500 |
+
+Uncaught exceptions are also passed to `ErrorLogListener`. Implement that interface as a bean to write errors to your own log table.
+
+## Modules
+
+```mermaid
+flowchart LR
+    APP["Your project"]
+    BOM["mugsun-bom"]
+    WEB["mugsun-starter-web"]
+    MB["mugsun-starter-mybatis"]
+    TOOL["mugsun-core-tool"]
+
+    APP -.->|"imports versions"| BOM
+    APP --> WEB
+    APP --> MB
+    WEB --> TOOL
+    MB --> TOOL
+```
+
+| Module | Contents |
 | --- | --- |
-| `mugsun-bom` | Pins this repository’s artifacts and third-party versions (Flex, Sa-Token, JetCache, …) |
-| `mugsun-core-tool` | Spring-free common API types and utilities |
-| `mugsun-starter-web` | `AutoConfiguration.imports` wires exception handling, Sa interceptor, crypto advice, and related beans; all `@ConditionalOnMissingBean` |
-| `mugsun-starter-mybatis` | Brings in the Flex Spring Boot starter and `BaseEntity`; explicitly overrides Flex’s transitive older `mybatis-spring` |
+| `mugsun-bom` | Pins the versions of this repository's artifacts and of third-party dependencies such as MyBatis-Flex, Sa-Token and JetCache |
+| `mugsun-core-tool` | The response wrapper `R`, business exceptions and a tree helper. No Spring dependency |
+| `mugsun-starter-web` | Global exception handling, annotation checks and API encryption, plus safe serialisation of big integers and an Excel helper |
+| `mugsun-starter-mybatis` | MyBatis-Flex, the entity base class `BaseEntity`, and the handler for unique constraint violations |
 
-There is no `spring-boot:run` goal in this repository. Use [mugsun-boot](https://github.com/mugsun/mugsun-boot) for a runnable server.
+Every bean the starters register can be replaced. Declare a bean of the same type and the starter's one backs off.
 
-## Scope
+### Entity base class
 
-**Provided**
+```java
+@Table("book")
+public class Book extends BaseEntity {
+    private String title;
+}
+```
 
-- BOM plus `mugsun-starter-web` / `mugsun-starter-mybatis` starters
-- Tip is `0.2.0-SNAPSHOT` (local install required); Central currently has legacy `0.1.0` only
-- Sa-Token annotation auth interceptor, unified responses and service exceptions, API crypto, safe large-number serialization
-- Flex base entity and an explicit override for the older transitive `mybatis-spring`
+An entity that extends `BaseEntity` gets a generated `long` primary key, `id`. The base class also maintains the creation time, the update time and the logical-delete flag.
 
-**Not provided**
+Call `sanitizeForInsert()` before saving to drop any times or delete flag that came in with the request body.
 
-- A standalone HTTP service or domain business modules
-- Treating uniappx-ui / cloud as shipped product dependencies
+### Trees and Excel
 
-Class lists and configuration keys are defined in the [documentation](https://docs.mugsun.com/en/core/) and source tree.
+```java
+// The node class implements INode<T>; the second argument is the parentId of root nodes
+List<Menu> tree = TreeUtil.build(menus, 0L);
 
-## Related projects
+// Columns are mapped to fields with @ExcelProperty
+List<BookRow> rows = ExcelUtil.read(file, BookRow.class);
+ExcelUtil.export(response, "books", "Sheet1", rows, BookRow.class);
+```
 
-Open-source line: `boot` · `core` · `pc` · `track` · [mugsun-docs](https://github.com/mugsun/mugsun-docs).
+## API encryption
 
-| Repository | Relationship |
+`@ApiDecrypt` on an endpoint decrypts the request body, and `@ApiEncrypt` encrypts `data` in the response. The algorithm is SM4-GCM.
+
+```java
+@ApiDecrypt
+@ApiEncrypt
+@PostMapping("/login")
+public R<LoginVO> login(@RequestBody LoginDTO dto) {
+    return R.data(authService.login(dto));
+}
+```
+
+The request body has to be `{"encryptData": "<ciphertext>"}`. In the response, `data` is ciphertext and `dataType` is `ENCRYPT`.
+
+> [!WARNING]
+> This is transport obfuscation and does not replace HTTPS. The key is sent to the browser, so it is not secret from the client, and ciphertext can be replayed.
+
+The application starts without a key. On first start it generates a 16-byte key, stores it in `~/.mugsun/api-transport.key` and reuses it on later starts.
+
+In two kinds of deployment you must set the key yourself or mount a shared volume for the key directory:
+
+- Docker without a volume for that directory. Every restart would generate a new key.
+- More than one instance. Each instance would generate its own key and could not decrypt the others' data.
+
+| Property | Default | Notes |
+| --- | --- | --- |
+| `mugsun.crypto.api-key` | empty | 32 hex characters, or base64 that decodes to exactly 16 bytes. A malformed value stops the startup |
+| `mugsun.home` | `~/.mugsun` | The directory for the generated key file |
+
+You can generate a key with `openssl rand -hex 16`.
+
+In mugsun-boot the two properties map to the environment variables `MUGSUN_API_KEY` and `MUGSUN_HOME`.
+
+Ciphertext is `base64(12-byte IV + ciphertext + 16-byte tag)`.
+
+If you write a client in another language, check it against the data in [api-crypto-vectors.json](./mugsun-starter-web/src/test/resources/crypto/api-crypto-vectors.json).
+
+More details are in the [configuration reference](https://docs.mugsun.com/en/boot/configuration).
+
+## Current limits
+
+- `0.2.0-SNAPSHOT` is not on Maven Central. You have to install it locally.
+- It needs Spring Boot 3 and JDK 21. Earlier versions are not supported.
+- It supports Spring MVC only, not WebFlux.
+
+## Related repositories
+
+| Repository | What it is |
 | --- | --- |
-| [mugsun-boot](https://github.com/mugsun/mugsun-boot) | Primary consumer; tip depends on this repo at `0.2.0-SNAPSHOT` and requires a local install first |
-| [mugsun-pc](https://github.com/mugsun/mugsun-pc) | Admin console; not a direct dependency of this repository |
-| [mugsun-track](https://github.com/mugsun/mugsun-track) | Browser SDK; related indirectly through boot’s track module |
-| [mugsun-docs](https://github.com/mugsun/mugsun-docs) | Documentation site [docs.mugsun.com](https://docs.mugsun.com/) |
+| [mugsun-boot](https://github.com/mugsun/mugsun-boot) | The backend, and the main user of this library |
+| [mugsun-pc](https://github.com/mugsun/mugsun-pc) | The admin console |
+| [mugsun-docs](https://github.com/mugsun/mugsun-docs) | Source of the documentation site, [docs.mugsun.com](https://docs.mugsun.com/en/) |
+
+## Contributing
+
+Read the [contributing guide](https://github.com/mugsun/.github/blob/main/CONTRIBUTING_EN.md) before you send a change. Report security issues privately as described in [SECURITY.md](https://github.com/mugsun/.github/blob/main/SECURITY.md). Please do not open a public issue.
+
+<details>
+<summary>Publishing to Maven Central</summary>
+
+Publish a GitHub Release in this repository, or run the `Publish to Maven Central` workflow by hand.
+
+The local equivalent is below. It needs a Central Portal token and GPG set up first:
+
+```bash
+mvn -Prelease clean deploy -DskipTests
+```
+
+</details>
 
 ## License
 
-[MIT](./LICENSE) for source and tip. Published Central `0.1.0` artifacts were declared Apache-2.0 at release time.
+MIT, see [LICENSE](./LICENSE). The `0.1.0` artifacts on Maven Central were published under Apache-2.0.

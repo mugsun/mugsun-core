@@ -47,6 +47,7 @@
 
 ### 变更
 
+- README 中英文重写：安装、接口示例、模块图和接口加解密说明
 - 许可证由 Apache-2.0 改为 MIT（见 `LICENSE`）。Maven Central 上已发布的 `0.1.0` 构件仍保留发布时声明的
   Apache-2.0
 - 唯一约束冲突（`org.springframework.dao.DuplicateKeyException` 及子类）的 HTTP 状态从 500 改为

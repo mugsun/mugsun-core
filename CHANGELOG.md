@@ -6,9 +6,14 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-21
+
+和 `0.1.0` 不兼容，升级前先看
+[升级说明](https://docs.mugsun.com/guide/upgrade/core-0-2-0)。
+
 ### 不兼容变更
 
-- 开发版本改为 `0.2.0-SNAPSHOT`；mugsun-boot 依赖这个版本
+- 版本号升到 `0.2.0`；mugsun-boot 主干依赖这个版本
 
 - 接口加密去掉内置密钥，改为 SM4-GCM；不配也能启动，`MUGSUN_API_KEY` 可选覆盖
   - 未配置时首次启动生成 16 字节密钥，存 `~/.mugsun/api-transport.key`
@@ -78,4 +83,5 @@
   Release tag 另择时补打
 
 [Unreleased]: https://github.com/mugsun/mugsun-core/commits/main
+[0.2.0]: https://github.com/mugsun/mugsun-core/compare/v0.1.0...v0.2.0
 [0.1.0]: https://repo1.maven.org/maven2/com/mugsun/

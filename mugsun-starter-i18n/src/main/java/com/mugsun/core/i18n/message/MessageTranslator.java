@@ -1,6 +1,7 @@
 package com.mugsun.core.i18n.message;
 
 import com.mugsun.core.i18n.locale.LocaleNegotiator;
+import com.mugsun.core.i18n.source.MessagePatterns;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
@@ -89,8 +90,9 @@ public class MessageTranslator {
 	 * 按当前语言取一条文案。
 	 *
 	 * @param code 点分的码（{@code user.not.found}），或者中文原文（{@code 用户 {0} 不存在}）
-	 * @param args 填到 {@code {0}}、{@code {1}} 里的值。带参数时文案按 {@link MessageFormat} 的规则解析：
-	 * 单引号要写两个；数字会按语言加千分位，单号这类不想加的请传字符串
+	 * @param args 填到 {@code {0}}、{@code {1}} 里的值。带参数时文案按 {@link MessageFormat} 的写法解析：
+	 * 单引号要写两个，要原样显示的花括号左右各用一对单引号括起来。值填进去的样子和用加号拼字符串一样
+	 * （数字不加千分位），想按语言的习惯显示就写 {@code {0,number}}，见 {@link MessagePatterns}
 	 * @return 文案；没有翻译时返回 {@code code} 本身（占位照样填好）
 	 */
 	public String get(String code, Object... args) {
@@ -148,7 +150,7 @@ public class MessageTranslator {
 
 	private static String format(String pattern, Object[] args, Locale locale) {
 		try {
-			return new MessageFormat(pattern, locale).format(args);
+			return MessagePatterns.compile(pattern, locale).format(args);
 		} catch (IllegalArgumentException e) {
 			return pattern;
 		}

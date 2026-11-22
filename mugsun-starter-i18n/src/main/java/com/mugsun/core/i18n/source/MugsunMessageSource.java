@@ -23,7 +23,7 @@ import java.util.function.Supplier;
  * </ol>
  *
  * <p>文案的键可以是点分的码（{@code user.not.found}），也可以直接是中文原文（{@code 用户不存在}）。
- * 不带参数取文案时原样返回；带参数时按 {@link MessageFormat} 的规则填 {@code {0}}、{@code {1}}。
+ * 不带参数取文案时原样返回；带参数时填 {@code {0}}、{@code {1}}，填法见 {@link MessagePatterns}。
  */
 public class MugsunMessageSource extends AbstractMessageSource {
 
@@ -82,6 +82,11 @@ public class MugsunMessageSource extends AbstractMessageSource {
 			cached = formats.computeIfAbsent(locale, key -> new ConcurrentHashMap<>());
 		}
 		return cached.computeIfAbsent(text, pattern -> createMessageFormat(pattern, locale));
+	}
+
+	@Override
+	protected MessageFormat createMessageFormat(String msg, Locale locale) {
+		return MessagePatterns.compile(msg, locale);
 	}
 
 	private String find(String code, Locale locale) {

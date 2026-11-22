@@ -36,7 +36,7 @@ class MessageTranslatorTest {
 		Locale.ROOT, Map.of("demo.greeting", "你好，{0}", "demo.required", "必填"),
 		Locale.ENGLISH, Map.of("demo.greeting", "Hello, {0}", "demo.required", "This field is required",
 			"demo.broken", "Broken {0", "用户不存在", "User not found", "用户 {0} 不存在", "User {0} does not exist",
-			"共 {0} 条", "{0} items", LONG_TEXT, "too long")))), ZH_CN);
+			"共 {0} 条", "{0} items", "demo.total", "{0,number} items in total", LONG_TEXT, "too long")))), ZH_CN);
 
 	@AfterEach
 	void resetLocale() {
@@ -91,14 +91,32 @@ class MessageTranslatorTest {
 	}
 
 	@Test
-	@DisplayName("数字按语言的习惯加千分位；单号这类不想加的传字符串")
-	void numbers() {
-		assertThat(translator.get("共 {0} 条", 12345)).isEqualTo("共 12,345 条");
-		assertThat(translator.get("共 {0} 条", "12345")).isEqualTo("共 12345 条");
+	@DisplayName("没写格式的占位：值和用加号拼字符串时一样显示，数字不加千分位")
+	void plainPlaceholders() {
+		assertThat(translator.get("共 {0} 条", 12345)).isEqualTo("共 12345 条");
+		assertThat(translator.get("编号 {0}", 1795310954689L)).isEqualTo("编号 1795310954689");
+		assertThat(translator.get("半径 {0} 米", 1234.5678)).isEqualTo("半径 1234.5678 米");
+		assertThat(translator.get("负责人 {0}", (Object) null)).isEqualTo("负责人 null");
 
 		LocaleContextHolder.setLocale(Locale.ENGLISH);
 
-		assertThat(translator.get("共 {0} 条", 12345)).isEqualTo("12,345 items");
+		// 有翻译的和没翻译的，填出来一个样
+		assertThat(translator.get("共 {0} 条", 12345)).isEqualTo("12345 items");
+		assertThat(translator.get("编号 {0}", 1795310954689L)).isEqualTo("编号 1795310954689");
+	}
+
+	@Test
+	@DisplayName("占位里写明了格式：按语言的习惯显示")
+	void declaredFormats() {
+		assertThat(translator.get("共 {0,number} 条", 12345)).isEqualTo("共 12,345 条");
+		assertThat(translator.get("{0,choice,0#没有文件|1#{0} 个文件}", 0)).isEqualTo("没有文件");
+		assertThat(translator.get("{0,choice,0#没有文件|1#{0} 个文件}", 5)).isEqualTo("5 个文件");
+		// 同一个值，一处写了格式一处没写：各按各的
+		assertThat(translator.get("第 {0} 行，共 {0,number} 字节", 12345)).isEqualTo("第 12345 行，共 12,345 字节");
+
+		LocaleContextHolder.setLocale(Locale.ENGLISH);
+
+		assertThat(translator.get("demo.total", 12345)).isEqualTo("12,345 items in total");
 	}
 
 	@Test

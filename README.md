@@ -309,7 +309,8 @@ private String name;
 - 同一句话在几个文件里都有时，应用自己的 `messages` 优先。想换掉框架自带的译文，在自己的 `messages_en.properties` 里写同一个键。
 - 只翻译统一响应 `R` 里的 `msg`，不动 `data`。
 - 不想拿中文原文做键，可以用码：`ServiceException("{order.closed}")`、`@NotBlank(message = "{user.name.required}")`、`I18n.get("order.created", orderNo)`。这时中文写在 `i18n/messages.properties` 里。
-- 带 `{0}` 的译文里，单引号要写两个（`It''s {0}`）。数字会按语言加千分位，单号这类不想加的传字符串。
+- 带 `{0}` 的句子（原文和译文都是）按 `MessageFormat` 的写法：单引号要写两个（`It''s {0}`），要原样显示的花括号用单引号括起来（`'{'`）。
+- 填进 `{0}` 的值和用加号拼字符串时一样显示：数字不加千分位，编号、行号、条数直接传就行。想按语言的习惯显示，占位写成 `{0,number}`。
 - 语言跟着处理请求的线程走。`@Async`、线程池和定时任务里取到的是默认语言，需要别的语言时用 `I18n.get(locale, ...)`。
 - 过滤器里自己写响应的地方（限流、登录校验这类）不经过统一响应 `R`，要自己翻译：`I18n.translate("请求过于频繁")`。过滤器里取到的语言和控制器里一样。
 - 按 Spring Boot 的习惯放在类路径根目录的 `messages*.properties` 也照样读。

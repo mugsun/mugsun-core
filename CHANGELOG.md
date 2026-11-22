@@ -46,6 +46,20 @@
   - `encrypt(null)`、`decrypt(null)` 都返回 null，不再抛异常
   - 跨端向量补 4 条：U+3000、U+2028 被 strip 去掉，NBSP、BOM 不去判非法
 
+### 新增
+
+- 新增 `mugsun-starter-lock`：分布式锁，BOM 里已登记版本
+  - 两种用法：方法上加 `@DistributedLock`，或者注入 `LockTemplate`
+  - 零配置：应用里有 Redis 连接就用 Redis，没有就退回单机锁并打一条 WARN
+  - `mugsun.lock.type`：`auto`（默认）、`redis`（找不到 Redis 拒绝启动）、`local`
+  - 不写租期时占到方法结束，期间自动续期；进程崩溃后 30 秒内自动放开
+  - 写了 `leaseTime` 是固定租期，到时间一定放开，不续期
+  - 同一线程可重入；释放和续期都比对持有者令牌，不会放掉别人的锁
+  - 切面排在事务外面：先拿锁再开事务，事务提交后才放锁
+  - 没抢到锁默认抛 `LockFailedException`（`ServiceException` 的子类）
+  - `onFail = SKIP` 时不执行也不报错，给多实例的定时任务用
+  - 不引入新的第三方库：Redis 走 Spring Data Redis，是可选依赖
+
 ### CI
 
 - CI 改为推送任意分支即运行，分支先绿再快进 main

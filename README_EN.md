@@ -6,7 +6,7 @@
 [![Maven Central](https://img.shields.io/maven-central/v/com.mugsun/mugsun-starter-web)](https://central.sonatype.com/search?q=com.mugsun)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-The shared library behind the mugsun backend: a BOM, a small utility module and two Spring Boot starters.
+The shared library behind the mugsun backend: a BOM, a small utility module and three Spring Boot starters.
 
 Add it and your endpoints get one response format, global exception handling and Sa-Token annotation checks. It is a library and does not run on its own. The runnable backend is [mugsun-boot](https://github.com/mugsun/mugsun-boot).
 
@@ -114,13 +114,16 @@ flowchart LR
     BOM["mugsun-bom"]
     WEB["mugsun-starter-web"]
     MB["mugsun-starter-mybatis"]
+    LOCK["mugsun-starter-lock"]
     TOOL["mugsun-core-tool"]
 
     APP -.->|"imports versions"| BOM
     APP --> WEB
     APP --> MB
+    APP --> LOCK
     WEB --> TOOL
     MB --> TOOL
+    LOCK --> TOOL
 ```
 
 | Module | Contents |
@@ -129,6 +132,7 @@ flowchart LR
 | `mugsun-core-tool` | The response wrapper `R`, business exceptions and a tree helper. No Spring dependency |
 | `mugsun-starter-web` | Global exception handling, annotation checks and API encryption, plus safe serialisation of big integers and an Excel helper |
 | `mugsun-starter-mybatis` | MyBatis-Flex, the entity base class `BaseEntity`, and the handler for unique constraint violations |
+| `mugsun-starter-lock` | A distributed lock, used through an annotation or a template. It uses Redis when the project has it and falls back to an in-process lock when it does not |
 
 Every bean the starters register can be replaced. Declare a bean of the same type and the starter's one backs off.
 
@@ -196,12 +200,74 @@ If you write a client in another language, check it against the data in [api-cry
 
 More details are in the [configuration reference](https://docs.mugsun.com/en/boot/configuration).
 
+## Distributed lock
+
+With `mugsun-starter-lock`, only one instance does a given piece of work at a time. It needs no configuration. If the project has Redis, the lock lives in Redis. If it does not, the starter falls back to an in-process lock and says so in the startup log.
+
+```xml
+<dependency>
+  <groupId>com.mugsun</groupId>
+  <artifactId>mugsun-starter-lock</artifactId>
+</dependency>
+```
+
+Put the annotation on a method:
+
+```java
+// One payment per order at a time. Other requests wait up to 3 seconds,
+// then get the business failure "操作正在进行中，请稍后再试".
+@DistributedLock(key = "#orderId", waitTime = 3)
+public void pay(Long orderId) {
+    // ...
+}
+
+// A scheduled job: one instance runs it, the others skip this round.
+@Scheduled(cron = "0 0 3 * * *")
+@DistributedLock(name = "job:log-clean", onFail = LockFailAction.SKIP)
+public void clean() {
+    // ...
+}
+```
+
+Or inject `LockTemplate` and call it yourself:
+
+```java
+// Waits up to 3 seconds, then throws LockFailedException
+lockTemplate.run("order:pay:" + orderId, Duration.ofSeconds(3), () -> pay(orderId));
+
+// Skips when the lock is taken. The return value tells you whether it ran
+boolean ran = lockTemplate.tryRun("job:log-clean", this::clean);
+```
+
+The conventions:
+
+- Without a lease time, the lock is held until the method returns and is renewed while the method runs. If the process dies, nobody renews it and the lock frees itself within 30 seconds.
+- With `leaseTime`, the lease is fixed. The lock is freed when the time is up, whether or not the method has finished.
+- The lock wraps the transaction. It is taken before the transaction starts and freed after the transaction commits.
+- A thread can take a lock it already holds.
+- When the lock cannot be taken, `LockFailedException` is thrown. It is a `ServiceException`, so the endpoint returns an ordinary business failure.
+- The annotation works through the Spring proxy, so a call from within the same class is not locked. Use `LockTemplate` there.
+
+| Property | Default | Notes |
+| --- | --- | --- |
+| `mugsun.lock.type` | `auto` | `auto`: Redis when the project has it, otherwise the in-process lock. `redis`: Redis is required, and the application refuses to start when the project has no Redis configured. `local`: the in-process lock only |
+| `mugsun.lock.key-prefix` | `lock:` | The prefix of every lock key in Redis |
+| `mugsun.lock.lease-time` | `30s` | The lease used when none is given. It is renewed while the lock is held |
+| `mugsun.lock.retry-interval` | `100ms` | How often a waiting caller tries again |
+| `mugsun.lock.enabled` | `true` | Set it to `false` to turn the starter off |
+
+> [!WARNING]
+> The in-process lock only works within one instance. If you run more than one instance, add `spring-boot-starter-data-redis`. In production, set `mugsun.lock.type=redis`, so that a project without Redis fails at startup instead of quietly falling back to the in-process lock.
+
+The lock prevents concurrent execution under normal conditions. If Redis loses its data or the process pauses for a long time, a second caller can still get in. Where that is not acceptable, back the lock with a unique constraint or a version column in the database.
+
 ## Current limits
 
 - `0.3.0-SNAPSHOT` is not on Maven Central. You have to install it locally.
 - It needs Spring Boot 4 and JDK 21. Projects still on Spring Boot 3 should use `0.2.x` (branch `release/0.2.0`).
 - JSON still goes through Jackson 2 for now. Spring Boot 4 defaults to Jackson 3, so `mugsun-starter-web` sets the default JSON library for reading and writing request and response bodies back to Jackson 2, and custom serializers are still written against `com.fasterxml.jackson`. Setting `spring.http.converters.preferred-json-mapper` to `jackson` in your application switches back to Jackson 3, but features written against Jackson 2, such as writing large `Long` values as strings, will not apply.
 - It supports Spring MVC only, not WebFlux.
+- A caller waiting for the distributed lock retries on a timer, so the lock is not first come, first served.
 
 ## Related repositories
 

@@ -33,6 +33,11 @@
 				<artifactId>mugsun-starter-mybatis</artifactId>
 				<version>${mugsun.version}</version>
 			</dependency>
+			<dependency>
+				<groupId>com.mugsun</groupId>
+				<artifactId>mugsun-starter-lock</artifactId>
+				<version>${mugsun.version}</version>
+			</dependency>
 			<!-- 持久层：MyBatis-Flex。Spring Boot 4 用 boot4 这个包，它自己会带上下面的 mybatis-flex-spring-boot-starter，两个版本一起管 -->
 			<dependency>
 				<groupId>com.mybatis-flex</groupId>

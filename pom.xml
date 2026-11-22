@@ -81,6 +81,7 @@
 		<module>mugsun-core-tool</module>
 		<module>mugsun-starter-web</module>
 		<module>mugsun-starter-mybatis</module>
+		<module>mugsun-starter-lock</module>
 	</modules>
 
 	<!--

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>com.mugsun</groupId>
+		<artifactId>mugsun-core</artifactId>
+		<version>0.3.0-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>mugsun-starter-lock</artifactId>
+	<name>mugsun-starter-lock</name>
+	<description>分布式锁：注解和模板两种用法，有 Redis 用 Redis，没有就退回单机锁</description>
+
+	<dependencies>
+		<dependency>
+			<groupId>com.mugsun</groupId>
+			<artifactId>mugsun-core-tool</artifactId>
+			<version>${mugsun.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter</artifactId>
+		</dependency>
+		<!-- @DistributedLock 靠切面生效 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-aspectj</artifactId>
+		</dependency>
+		<!-- Redis 不强制带进来：应用自己引了 spring-boot-starter-data-redis 就用 Redis 加锁，没引就是单机锁 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<!-- 只在编译时用：生成配置项的说明，在 IDE 里写 mugsun.lock.* 时有补全和解释 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-configuration-processor</artifactId>
+			<optional>true</optional>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- 拿真的 Redis 验证加锁、释放、续期的脚本；没有 Docker 的机器上这几个测试自动跳过 -->
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+</project>

@@ -10,6 +10,7 @@ mugsun 的基础库：BOM 加若干 starter，发布到 Maven Central（版本�
 | --- | --- | --- |
 | `mugsun-bom` | — | 依赖版本（MyBatis-Flex、Sa-Token 等），只有 `pom.xml` |
 | `mugsun-core-tool` | `com.mugsun.core.tool` | `api.R` / `api.ResultCode`，`exception.ServiceException` / `ForbiddenException`，`tree.TreeUtil` / `INode` |
+| `mugsun-starter-lock` | `com.mugsun.core.lock` | `annotation.DistributedLock`，`template.LockTemplate` / `LockHandle`，`client.LockClient`（`RedisLockClient` / `LocalLockClient`），`exception.LockFailedException`，`config.MugsunLockAutoConfiguration` |
 | `mugsun-starter-mybatis` | `com.mugsun.core.mybatis` | `base.BaseEntity`，`web.DuplicateKeyExceptionHandler`，`config.MugsunMybatisWebAutoConfiguration` |
 | `mugsun-starter-web` | `com.mugsun.core.web` | `handler.GlobalExceptionHandler`，`crypto.*`，`excel.ExcelUtil`，`jackson.SafeNumberModule`，`config.MugsunWebAutoConfiguration` |
 
@@ -41,6 +42,16 @@ mugsun 的基础库：BOM 加若干 starter，发布到 Maven Central（版本�
 
 `@ApiEncrypt`（响应加密）、`@ApiDecrypt`（请求解密）可标在类或方法上，由 `EncryptResponseAdvice`、`DecryptRequestAdvice`、`ApiCryptoService` 处理。改加密格式时须与前端（mugsun-pc）同步，并补齐本仓 `mugsun-starter-web` 下相关测试。
 
+## 分布式锁
+
+`mugsun-starter-lock`：`@DistributedLock`（方法上）和 `LockTemplate`（代码里）两种用法，锁存在哪里由 `LockClient` 决定。
+
+- 零配置：应用里有 Redis 连接就用 `RedisLockClient`，没有就退回 `LocalLockClient` 并打一条 WARN；`mugsun.lock.type=redis` 时找不到 Redis 拒绝启动。Redis 是可选依赖，引用 Redis 类的代码只能放在 `RedisLockClient` 和 `RedisLockClientFactory` 里。
+- 不传租期 = 占到释放为止并自动续期（默认租期 30 秒，每三分之一续一次）；传了租期 = 固定租期不续。改这条默认行为属于破坏性变更。
+- 切面顺序 `DistributedLockAspect.ORDER`（`LOWEST_PRECEDENCE - 1000`）：在事务外面、在大多数切面里面。
+- 释放和续期必须比对持有者令牌（Redis 里用脚本一次做完），不能改成直接删键。
+- `RedisLockClientTest` 用 Testcontainers 起真的 Redis，没有 Docker 的机器自动跳过；改了 Redis 命令或脚本要在有 Docker 的机器上跑过它。
+
 ## 组件速查
 
 | 需求 | 类 |
@@ -51,6 +62,7 @@ mugsun 的基础库：BOM 加若干 starter，发布到 Maven Central（版本�
 | 树构建 | `com.mugsun.core.tool.tree.TreeUtil` |
 | Excel | `com.mugsun.core.web.excel.ExcelUtil` |
 | 加解密注解 | `com.mugsun.core.web.crypto.ApiEncrypt` / `ApiDecrypt` |
+| 分布式锁 | `com.mugsun.core.lock.annotation.DistributedLock` / `com.mugsun.core.lock.template.LockTemplate` |
 
 ## 测试与构建
 

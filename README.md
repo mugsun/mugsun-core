@@ -6,7 +6,7 @@
 [![Maven Central](https://img.shields.io/maven-central/v/com.mugsun/mugsun-starter-web)](https://central.sonatype.com/search?q=com.mugsun)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-mugsun 后端的公共库，由一个 BOM、一个工具包和两个 Spring Boot Starter 组成。
+mugsun 后端的公共库，由一个 BOM、一个工具包和三个 Spring Boot Starter 组成。
 
 引入后，接口就有了统一的响应格式、全局异常处理和 Sa-Token 注解鉴权。它是依赖库，不能单独运行，可以运行的后端是 [mugsun-boot](https://github.com/mugsun/mugsun-boot)。
 
@@ -114,13 +114,16 @@ flowchart LR
     BOM["mugsun-bom"]
     WEB["mugsun-starter-web"]
     MB["mugsun-starter-mybatis"]
+    LOCK["mugsun-starter-lock"]
     TOOL["mugsun-core-tool"]
 
     APP -.->|"导入版本"| BOM
     APP --> WEB
     APP --> MB
+    APP --> LOCK
     WEB --> TOOL
     MB --> TOOL
+    LOCK --> TOOL
 ```
 
 | 模块 | 内容 |
@@ -129,6 +132,7 @@ flowchart LR
 | `mugsun-core-tool` | 统一响应 `R`、业务异常和树形工具，不依赖 Spring |
 | `mugsun-starter-web` | 全局异常处理、注解鉴权和接口加解密，另有大整数序列化和 Excel 工具 |
 | `mugsun-starter-mybatis` | MyBatis-Flex 和实体基类 `BaseEntity`，以及唯一约束冲突的处理 |
+| `mugsun-starter-lock` | 分布式锁，有注解和模板两种用法；有 Redis 用 Redis，没有就退回单机锁 |
 
 Starter 注册的 Bean 都可以覆盖。自己声明一个同类型的 Bean，Starter 的那个就不再生效。
 
@@ -196,12 +200,73 @@ public R<LoginVO> login(@RequestBody LoginDTO dto) {
 
 更多说明见[配置参考](https://docs.mugsun.com/boot/configuration)。
 
+## 分布式锁
+
+引入 `mugsun-starter-lock` 后，同一件事在多个实例里同一时刻只有一个在做。不用写配置：工程里有 Redis 就把锁放在 Redis 里，没有就退回单机锁，启动时提醒一句。
+
+```xml
+<dependency>
+  <groupId>com.mugsun</groupId>
+  <artifactId>mugsun-starter-lock</artifactId>
+</dependency>
+```
+
+在方法上加注解：
+
+```java
+// 同一个订单同时只能有一个在支付；别的请求最多等 3 秒，等不到就返回「操作正在进行中，请稍后再试」
+@DistributedLock(key = "#orderId", waitTime = 3)
+public void pay(Long orderId) {
+    // ...
+}
+
+// 定时任务：多个实例里只让一个执行，别的实例这一次直接跳过
+@Scheduled(cron = "0 0 3 * * *")
+@DistributedLock(name = "job:log-clean", onFail = LockFailAction.SKIP)
+public void clean() {
+    // ...
+}
+```
+
+也可以注入 `LockTemplate` 自己调：
+
+```java
+// 最多等 3 秒，等不到抛 LockFailedException
+lockTemplate.run("order:pay:" + orderId, Duration.ofSeconds(3), () -> pay(orderId));
+
+// 抢不到就跳过，返回值说明这一次有没有执行
+boolean ran = lockTemplate.tryRun("job:log-clean", this::clean);
+```
+
+几条约定：
+
+- 不写租期时，锁一直占到方法结束，执行期间自动续期。进程崩溃后没人续期，锁在 30 秒内自己放开。
+- 写了 `leaseTime` 就是固定租期，到时间一定放开，不管方法有没有执行完。
+- 锁包在事务外面：先拿锁再开事务，事务提交以后才放锁。
+- 同一个线程可以重复拿同一把锁，不会自己挡住自己。
+- 没抢到锁时抛 `LockFailedException`。它是 `ServiceException`，接口返回的是一次普通的业务失败。
+- 注解靠 Spring 代理生效，同一个类里自己调自己不会加锁，这种场合用 `LockTemplate`。
+
+| 配置项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `mugsun.lock.type` | `auto` | `auto`：有 Redis 用 Redis，没有就用单机锁。`redis`：必须用 Redis，工程里没配 Redis 就拒绝启动。`local`：只用单机锁 |
+| `mugsun.lock.key-prefix` | `lock:` | 锁在 Redis 里的统一前缀 |
+| `mugsun.lock.lease-time` | `30s` | 不写租期时的租期，持有期间自动续 |
+| `mugsun.lock.retry-interval` | `100ms` | 等锁时隔多久再抢一次 |
+| `mugsun.lock.enabled` | `true` | 设成 `false` 整个关掉 |
+
+> [!WARNING]
+> 单机锁只在一个实例内互斥。部署多个实例时要引入 `spring-boot-starter-data-redis`。生产环境建议配 `mugsun.lock.type=redis`，这样工程里没配 Redis 时会启动失败，不会悄悄退回单机锁。
+
+锁挡的是正常情况下的同时执行。Redis 数据丢失、进程长时间停顿时，仍然可能有第二个进来。不能接受的地方，数据库里要有唯一约束或版本号兜底。
+
 ## 目前的限制
 
 - `0.3.0-SNAPSHOT` 没有发布到 Maven Central，只能本地安装。
 - 需要 Spring Boot 4 和 JDK 21。还在用 Spring Boot 3 的工程用 `0.2.x`（分支 `release/0.2.0`）。
 - JSON 暂时还用 Jackson 2：Spring Boot 4 默认是 Jackson 3，`mugsun-starter-web` 把接口读写 JSON 的默认库设回了 Jackson 2，自定义序列化器仍按 `com.fasterxml.jackson` 写。应用把 `spring.http.converters.preferred-json-mapper` 设成 `jackson` 会换回 Jackson 3，但 Long 转字符串等按 Jackson 2 写的功能不会跟着生效。
 - 只支持 Spring MVC，不支持 WebFlux。
+- 分布式锁等锁时靠定时重试，不保证先来先得。
 
 ## 相关仓库
 

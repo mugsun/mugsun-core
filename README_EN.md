@@ -12,14 +12,9 @@ Add it and your endpoints get one response format, global exception handling and
 
 ## Install
 
-The main branch is at `0.3.0-SNAPSHOT` (built on Spring Boot 4), which is not on Maven Central yet, so install it into your local repository first. You need JDK 21 and Maven 3.9+.
+The latest release is `0.3.0` (built on Spring Boot 4). It is on Maven Central, so you can depend on it directly with no local install. You need JDK 21 and Maven 3.9+.
 
-```bash
-git clone https://github.com/mugsun/mugsun-core.git && cd mugsun-core
-mvn -B clean install -DskipTests
-```
-
-Then import the BOM in your own project and declare the starters you use:
+Import the BOM in your own project and declare the starters you use:
 
 ```xml
 <dependencyManagement>
@@ -27,7 +22,7 @@ Then import the BOM in your own project and declare the starters you use:
     <dependency>
       <groupId>com.mugsun</groupId>
       <artifactId>mugsun-bom</artifactId>
-      <version>0.3.0-SNAPSHOT</version>
+      <version>0.3.0</version>
       <type>pom</type>
       <scope>import</scope>
     </dependency>
@@ -46,11 +41,16 @@ Then import the BOM in your own project and declare the starters you use:
 </dependencies>
 ```
 
-Maven Central only has the old `0.1.0`. Don't combine it with mugsun-boot from the main branch.
+Projects still on Spring Boot 3 should use `0.2.0` (branch `release/0.2.0`).
 
-Its API encryption is not compatible with the main branch, and it was published under Apache-2.0.
+`0.1.0` on Maven Central is the earliest release and should no longer be used: its API encryption is not compatible with later versions, and it was published under Apache-2.0. To move up from `0.1.0`, see the [upgrade notes](https://docs.mugsun.com/en/guide/upgrade/core-0-2-0). What changed in each version is in the [changelog](./CHANGELOG.md).
 
-The differences between the two versions are listed in the [upgrade notes](https://docs.mugsun.com/en/guide/upgrade/core-0-2-0).
+To use code from the main branch that has not been released yet, install it into your local repository first, then replace the version above with the one in the root `pom.xml`:
+
+```bash
+git clone https://github.com/mugsun/mugsun-core.git && cd mugsun-core
+mvn -B clean install -DskipTests
+```
 
 ## Write an endpoint
 
@@ -355,7 +355,6 @@ String msg = I18n.translate(locale, "请求未授权");
 
 ## Current limits
 
-- `0.3.0-SNAPSHOT` is not on Maven Central. You have to install it locally.
 - It needs Spring Boot 4 and JDK 21. Projects still on Spring Boot 3 should use `0.2.x` (branch `release/0.2.0`).
 - JSON still goes through Jackson 2 for now. Spring Boot 4 defaults to Jackson 3, so `mugsun-starter-web` sets the default JSON library for reading and writing request and response bodies back to Jackson 2, and custom serializers are still written against `com.fasterxml.jackson`. Setting `spring.http.converters.preferred-json-mapper` to `jackson` in your application switches back to Jackson 3, but features written against Jackson 2, such as writing large `Long` values as strings, will not apply.
 - It supports Spring MVC only, not WebFlux.

@@ -12,14 +12,9 @@ mugsun 后端的公共库，由一个 BOM、一个工具包和四个 Spring Boot
 
 ## 安装
 
-主干版本是 `0.3.0-SNAPSHOT`（基于 Spring Boot 4），还没有发布到 Maven Central，要先装到本地仓库。需要 JDK 21 和 Maven 3.9+。
+最新版本是 `0.3.0`（基于 Spring Boot 4），已经发布到 Maven Central，直接引用就行，不用先装到本地。需要 JDK 21 和 Maven 3.9+。
 
-```bash
-git clone https://github.com/mugsun/mugsun-core.git && cd mugsun-core
-mvn -B clean install -DskipTests
-```
-
-然后在自己的工程里导入 BOM，再声明要用的 Starter：
+在自己的工程里导入 BOM，再声明要用的 Starter：
 
 ```xml
 <dependencyManagement>
@@ -27,7 +22,7 @@ mvn -B clean install -DskipTests
     <dependency>
       <groupId>com.mugsun</groupId>
       <artifactId>mugsun-bom</artifactId>
-      <version>0.3.0-SNAPSHOT</version>
+      <version>0.3.0</version>
       <type>pom</type>
       <scope>import</scope>
     </dependency>
@@ -46,11 +41,16 @@ mvn -B clean install -DskipTests
 </dependencies>
 ```
 
-Maven Central 上只有旧的 `0.1.0`，不要和 mugsun-boot 主干一起用。
+还在用 Spring Boot 3 的工程用 `0.2.0`（分支 `release/0.2.0`）。
 
-它的接口加密和主干不兼容，发布时的许可是 Apache-2.0。
+Maven Central 上的 `0.1.0` 是最早的版本，不要再用：它的接口加密和后面的版本不兼容，发布时的许可是 Apache-2.0。从 `0.1.0` 升上来见[升级说明](https://docs.mugsun.com/guide/upgrade/core-0-2-0)，各版本改了什么见[更新日志](./CHANGELOG.md)。
 
-两个版本的差别见[升级说明](https://docs.mugsun.com/guide/upgrade/core-0-2-0)。
+要用主干上还没发布的代码，先装到本地仓库，再把上面的版本号换成根 `pom.xml` 里的版本：
+
+```bash
+git clone https://github.com/mugsun/mugsun-core.git && cd mugsun-core
+mvn -B clean install -DskipTests
+```
 
 ## 写一个接口
 
@@ -354,7 +354,6 @@ String msg = I18n.translate(locale, "请求未授权");
 
 ## 目前的限制
 
-- `0.3.0-SNAPSHOT` 没有发布到 Maven Central，只能本地安装。
 - 需要 Spring Boot 4 和 JDK 21。还在用 Spring Boot 3 的工程用 `0.2.x`（分支 `release/0.2.0`）。
 - JSON 暂时还用 Jackson 2：Spring Boot 4 默认是 Jackson 3，`mugsun-starter-web` 把接口读写 JSON 的默认库设回了 Jackson 2，自定义序列化器仍按 `com.fasterxml.jackson` 写。应用把 `spring.http.converters.preferred-json-mapper` 设成 `jackson` 会换回 Jackson 3，但 Long 转字符串等按 Jackson 2 写的功能不会跟着生效。
 - 只支持 Spring MVC，不支持 WebFlux。

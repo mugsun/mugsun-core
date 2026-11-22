@@ -6,9 +6,13 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-22
+
+基于 Spring Boot 4.1.3，和 `0.2.x` 不兼容；`0.2.x` 仍基于 Spring Boot 3.5。
+
 ### 不兼容变更
 
-- 升级到 Spring Boot 4.1.3，开发版本改为 `0.3.0-SNAPSHOT`
+- 升级到 Spring Boot 4.1.3，版本号升到 `0.3.0`
   - `0.2.x` 仍基于 Spring Boot 3.5，在分支 `release/0.2.0`
   - 随 Boot 升级：Spring Framework 7、Spring Security 7.1、Servlet 6.1
   - BOM 里的构件换成各库的 Boot 4 版，工程里直接写构件名的要跟着改：
@@ -27,24 +31,6 @@
   - 默认值排在所有配置来源最后，应用写了同名配置项以应用的为准
   - 不设的话接口不报错，但 Long 不再转字符串，前端的大整数会丢精度
   - 全部换到 Jackson 3 是下一步，到时去掉这个类和 `spring-boot-jackson2`
-
-- 开发版本改为 `0.2.0-SNAPSHOT`；mugsun-boot 依赖这个版本
-
-- 接口加密去掉内置密钥，改为 SM4-GCM；不配也能启动，`MUGSUN_API_KEY` 可选覆盖
-  - 未配置时首次启动生成 16 字节密钥，存 `~/.mugsun/api-transport.key`
-  - 文件 600、目录 700，原子写入，文件锁防并发首启，重启复用
-  - 目录可用 `mugsun.home` / `MUGSUN_HOME` 覆盖；日志只写路径
-  - 权限比 600 宽、非 POSIX、容器内未配密钥时打 WARN，不拒绝启动
-  - Docker 不挂卷或多实例部署必须配 `MUGSUN_API_KEY` 或挂共享卷
-  - 配置值解码后等于已删除的旧内置默认值时拒绝启动（hex/base64 写法同样）
-  - 移除 `allow-ephemeral-keys`；`strict-keys` 不再影响接口加密
-  - 新增 `transportKeyHex()`，只供已登录会话的启动下发接口使用
-  - 密钥须为 32 位 hex 或带填充的 16 字节标准 base64，不补零不截断
-  - 密文改为 base64(IV 12 字节 ‖ 密文 ‖ 标签)，旧 CBC 密文不再兼容
-  - 解密失败统一返回同一错误；只是传输混淆，不能代替 HTTPS
-  - 不防重放、不绑定接口（暂无 AAD）
-  - `encrypt(null)`、`decrypt(null)` 都返回 null，不再抛异常
-  - 跨端向量补 4 条：U+3000、U+2028 被 strip 去掉，NBSP、BOM 不去判非法
 
 ### 新增
 
@@ -83,6 +69,31 @@
   - `mugsun.i18n.enabled=false`：整个关掉
   - 不是 Spring MVC 的应用也能引入，只是不按请求头定语言、不翻译返回体
   - 不引入新的第三方库
+
+## [0.2.0] - 2026-11-21
+
+和 `0.1.0` 不兼容，升级前先看
+[升级说明](https://docs.mugsun.com/guide/upgrade/core-0-2-0)。
+
+### 不兼容变更
+
+- 版本号升到 `0.2.0`；mugsun-boot 主干依赖这个版本
+
+- 接口加密去掉内置密钥，改为 SM4-GCM；不配也能启动，`MUGSUN_API_KEY` 可选覆盖
+  - 未配置时首次启动生成 16 字节密钥，存 `~/.mugsun/api-transport.key`
+  - 文件 600、目录 700，原子写入，文件锁防并发首启，重启复用
+  - 目录可用 `mugsun.home` / `MUGSUN_HOME` 覆盖；日志只写路径
+  - 权限比 600 宽、非 POSIX、容器内未配密钥时打 WARN，不拒绝启动
+  - Docker 不挂卷或多实例部署必须配 `MUGSUN_API_KEY` 或挂共享卷
+  - 配置值解码后等于已删除的旧内置默认值时拒绝启动（hex/base64 写法同样）
+  - 移除 `allow-ephemeral-keys`；`strict-keys` 不再影响接口加密
+  - 新增 `transportKeyHex()`，只供已登录会话的启动下发接口使用
+  - 密钥须为 32 位 hex 或带填充的 16 字节标准 base64，不补零不截断
+  - 密文改为 base64(IV 12 字节 ‖ 密文 ‖ 标签)，旧 CBC 密文不再兼容
+  - 解密失败统一返回同一错误；只是传输混淆，不能代替 HTTPS
+  - 不防重放、不绑定接口（暂无 AAD）
+  - `encrypt(null)`、`decrypt(null)` 都返回 null，不再抛异常
+  - 跨端向量补 4 条：U+3000、U+2028 被 strip 去掉，NBSP、BOM 不去判非法
 
 ### CI
 
@@ -136,4 +147,6 @@
   Release tag 另择时补打
 
 [Unreleased]: https://github.com/mugsun/mugsun-core/commits/main
+[0.3.0]: https://github.com/mugsun/mugsun-core/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/mugsun/mugsun-core/compare/v0.1.0...v0.2.0
 [0.1.0]: https://repo1.maven.org/maven2/com/mugsun/

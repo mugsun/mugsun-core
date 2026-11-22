@@ -60,6 +60,27 @@
   - `onFail = SKIP` 时不执行也不报错，给多实例的定时任务用
   - 不引入新的第三方库：Redis 走 Spring Data Redis，是可选依赖
 
+- 新增 `mugsun-starter-i18n`：后端多语言，BOM 里已登记版本
+  - 提示语跟着请求头 `Accept-Language` 走，默认简体中文，不用写配置
+  - 代码里写死的中文提示不用改：返回前拿 `R.msg` 当键查翻译
+  - 查不到翻译原样返回，不报错；只动 `msg`，不动 `data`
+  - 翻译文件放 `i18n/` 目录，文件名 `名字_语言.properties`，用 UTF-8
+  - 一行里第一个等号左边整个是键，空格和冒号直接写
+  - 类路径根目录的 `messages*.properties` 也读，按 Spring Boot 的习惯
+  - 带变量的句子用 `I18n.get("用户 {0} 不存在", name)`，也可以用码做键
+  - 校验注解的提示语、`{码}` 写法的提示语查的是同一套翻译文件
+  - 支持的语言自动定：默认语言、简体中文，再加上有翻译文件的语言
+  - 找文案从具体到笼统再到兜底文案，不回退到服务器操作系统的语言
+  - 框架自己的提示语自带英文翻译，应用写同一个键可以换掉
+  - 文案放数据库时实现 `MessageProvider`，查文案时先问它
+  - 查文案出错不让请求失败：改用翻译文件或原文，并在日志里记一条 WARN
+  - `mugsun.i18n.default-locale`：默认语言，默认 `zh-CN`
+  - `mugsun.i18n.supported-locales`：写了就只认默认语言和写的这几种
+  - `mugsun.i18n.translate-response=false`：不翻译返回体
+  - `mugsun.i18n.enabled=false`：整个关掉
+  - 不是 Spring MVC 的应用也能引入，只是不按请求头定语言、不翻译返回体
+  - 不引入新的第三方库
+
 ### CI
 
 - CI 改为推送任意分支即运行，分支先绿再快进 main

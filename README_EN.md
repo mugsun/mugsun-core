@@ -6,7 +6,7 @@
 [![Maven Central](https://img.shields.io/maven-central/v/com.mugsun/mugsun-starter-web)](https://central.sonatype.com/search?q=com.mugsun)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-The shared library behind the mugsun backend: a BOM, a small utility module and three Spring Boot starters.
+The shared library behind the mugsun backend: a BOM, a small utility module and four Spring Boot starters.
 
 Add it and your endpoints get one response format, global exception handling and Sa-Token annotation checks. It is a library and does not run on its own. The runnable backend is [mugsun-boot](https://github.com/mugsun/mugsun-boot).
 
@@ -89,7 +89,7 @@ When the book exists, the response looks like this:
 }
 ```
 
-`id` is a string. Any `Long` or `BigInteger` outside ±2^53 is serialised as a string, so long primary keys keep their precision in the browser. The built-in messages are in Chinese.
+`id` is a string. Any `Long` or `BigInteger` outside ±2^53 is serialised as a string, so long primary keys keep their precision in the browser. The built-in messages are in Chinese. With `mugsun-starter-i18n` they follow the language of the request, see [Messages in other languages](#messages-in-other-languages).
 
 You don't handle the other cases yourself. The starters turn them into the same format:
 
@@ -115,15 +115,18 @@ flowchart LR
     WEB["mugsun-starter-web"]
     MB["mugsun-starter-mybatis"]
     LOCK["mugsun-starter-lock"]
+    I18N["mugsun-starter-i18n"]
     TOOL["mugsun-core-tool"]
 
     APP -.->|"imports versions"| BOM
     APP --> WEB
     APP --> MB
     APP --> LOCK
+    APP --> I18N
     WEB --> TOOL
     MB --> TOOL
     LOCK --> TOOL
+    I18N --> TOOL
 ```
 
 | Module | Contents |
@@ -133,6 +136,7 @@ flowchart LR
 | `mugsun-starter-web` | Global exception handling, annotation checks and API encryption, plus safe serialisation of big integers and an Excel helper |
 | `mugsun-starter-mybatis` | MyBatis-Flex, the entity base class `BaseEntity`, and the handler for unique constraint violations |
 | `mugsun-starter-lock` | A distributed lock, used through an annotation or a template. It uses Redis when the project has it and falls back to an in-process lock when it does not |
+| `mugsun-starter-i18n` | Messages in the language of the request. The messages already written in the code stay as they are, and you add a translation file |
 
 Every bean the starters register can be replaced. Declare a bean of the same type and the starter's one backs off.
 
@@ -261,6 +265,86 @@ The conventions:
 
 The lock prevents concurrent execution under normal conditions. If Redis loses its data or the process pauses for a long time, a second caller can still get in. Where that is not acceptable, back the lock with a unique constraint or a version column in the database.
 
+## Messages in other languages
+
+With `mugsun-starter-i18n`, the messages your endpoints return follow the `Accept-Language` request header. It needs no configuration, and the messages already written in your code stay as they are. You add a translation file.
+
+```xml
+<dependency>
+  <groupId>com.mugsun</groupId>
+  <artifactId>mugsun-starter-i18n</artifactId>
+</dependency>
+```
+
+Create `src/main/resources/i18n/messages_en.properties`. The text from the code goes on the left of the equals sign and the translation on the right:
+
+```properties
+用户不存在=User not found
+用户 {0} 不存在=User {0} does not exist
+名称不能为空=Name is required
+```
+
+Write the code as usual:
+
+```java
+// A fixed sentence needs no change. A request in English gets "User not found",
+// and a request in Chinese gets the original text.
+throw new ServiceException("用户不存在");
+
+// A sentence with variables goes through I18n.get. Mark the variables with {0}, {1}
+throw new ServiceException(I18n.get("用户 {0} 不存在", username));
+
+// Messages on validation annotations work the same way
+@NotBlank(message = "名称不能为空")
+private String name;
+```
+
+The library's own messages, such as "操作成功", "没有访问权限" and "资源不存在", come with English translations.
+
+The conventions:
+
+- Translation files live in the `i18n/` directory and are named `name_language.properties`, for example `messages_en`, `messages_zh_TW` and `messages_ja`. They are UTF-8, so write non-ASCII text as it is.
+- On each line, everything left of the first equals sign is the key. Spaces and colons need no escaping. Write an equals sign inside a key as `\=`.
+- `messages.properties`, without a language, holds the fallback text. It is used when a language has no entry for a sentence.
+- When a request has no `Accept-Language`, or asks only for languages that are not supported, the default language (Simplified Chinese) is used. You don't register the supported languages. They are the default language, Simplified Chinese, and every language that has a translation file.
+- A missing translation is not an error. The text is returned as it is.
+- When several files translate the same sentence, the application's own `messages` files win. To replace one of the library's translations, put the same key in your `messages_en.properties`.
+- Only `msg` in the response wrapper `R` is translated. `data` is left alone.
+- If you prefer codes to sentences as keys, use `ServiceException("{order.closed}")`, `@NotBlank(message = "{user.name.required}")` or `I18n.get("order.created", orderNo)`. The Chinese text then goes into `i18n/messages.properties`.
+- In a translation that contains `{0}`, write a single quote twice (`It''s {0}`). Numbers get the grouping separators of the language, so pass order numbers and the like as strings.
+- The language belongs to the thread that handles the request. Code in `@Async` methods, thread pools and scheduled jobs gets the default language. Use `I18n.get(locale, ...)` when it needs another one.
+- `messages*.properties` in the classpath root, the Spring Boot convention, is read as well.
+
+If your texts live in a database, implement `MessageProvider` and register it as a bean. It is asked first, and the translation files are used when it returns `null`:
+
+```java
+@Component
+public class DbMessageProvider implements MessageProvider {
+
+    @Override
+    public String find(String code, Locale locale) {
+        // Called on every lookup, so read from a cache, not from the database
+        return cache.get(locale, code);
+    }
+}
+```
+
+An error in a `MessageProvider` does not fail the request. That lookup uses the translation files instead, and a WARN is logged, at most once a minute.
+
+| Property | Default | Notes |
+| --- | --- | --- |
+| `mugsun.i18n.default-locale` | `zh-CN` | Used when a request names no language, or only unsupported ones. Code that runs outside a request, such as a scheduled job, uses it too |
+| `mugsun.i18n.supported-locales` | empty | When empty, the list is worked out for you: the default language, Simplified Chinese, and every language that has a translation file. When set, only the default language and the listed ones count |
+| `mugsun.i18n.translate-response` | `true` | Translates the message in `R` before the response is written. With `false`, only texts fetched through `I18n.get` follow the language |
+| `mugsun.i18n.enabled` | `true` | Set it to `false` to turn the starter off |
+
+> [!NOTE]
+> The frontend has to send `Accept-Language`. mugsun-pc already does, and the header follows the language chosen in the console.
+
+Simplified Chinese always counts as supported because the messages in the code are written in it. For a project that should answer in English only, set both `mugsun.i18n.default-locale` and `mugsun.i18n.supported-locales` to `en`.
+
+To decide the language another way, for example from the signed-in user's settings, register your own bean named `localeResolver` and the starter's one backs off.
+
 ## Current limits
 
 - `0.3.0-SNAPSHOT` is not on Maven Central. You have to install it locally.
@@ -268,6 +352,7 @@ The lock prevents concurrent execution under normal conditions. If Redis loses i
 - JSON still goes through Jackson 2 for now. Spring Boot 4 defaults to Jackson 3, so `mugsun-starter-web` sets the default JSON library for reading and writing request and response bodies back to Jackson 2, and custom serializers are still written against `com.fasterxml.jackson`. Setting `spring.http.converters.preferred-json-mapper` to `jackson` in your application switches back to Jackson 3, but features written against Jackson 2, such as writing large `Long` values as strings, will not apply.
 - It supports Spring MVC only, not WebFlux.
 - A caller waiting for the distributed lock retries on a timer, so the lock is not first come, first served.
+- Translation matches whole sentences. A sentence built by string concatenation does not match, so write it with `I18n.get` to have it translated.
 
 ## Related repositories
 

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>com.mugsun</groupId>
+		<artifactId>mugsun-core</artifactId>
+		<version>0.3.0-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>mugsun-starter-i18n</artifactId>
+	<name>mugsun-starter-i18n</name>
+	<description>后端多语言：按请求头里的语言返回提示文案，翻译文件放进 i18n 目录就生效</description>
+
+	<dependencies>
+		<dependency>
+			<groupId>com.mugsun</groupId>
+			<artifactId>mugsun-core-tool</artifactId>
+			<version>${mugsun.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter</artifactId>
+		</dependency>
+		<!-- Spring MVC 不强制带进来：应用自己引了才注册「按请求头定语言」和「翻译返回体里的提示语」，没引（定时任务、网关）只有取文案的能力 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<!-- 只在编译时用：生成配置项的说明，在 IDE 里写 mugsun.i18n.* 时有补全和解释 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-configuration-processor</artifactId>
+			<optional>true</optional>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- 用真的统一异常处理来验证：业务异常、校验失败、找不到资源的提示语都会被翻译 -->
+		<dependency>
+			<groupId>com.mugsun</groupId>
+			<artifactId>mugsun-starter-web</artifactId>
+			<version>${mugsun.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<!-- 验证校验注解里的提示语也跟着请求的语言走 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+</project>

@@ -10,6 +10,7 @@ mugsun 的基础库：BOM 加若干 starter，发布到 Maven Central（版本�
 | --- | --- | --- |
 | `mugsun-bom` | — | 依赖版本（MyBatis-Flex、Sa-Token 等），只有 `pom.xml` |
 | `mugsun-core-tool` | `com.mugsun.core.tool` | `api.R` / `api.ResultCode`，`exception.ServiceException` / `ForbiddenException`，`tree.TreeUtil` / `INode` |
+| `mugsun-starter-i18n` | `com.mugsun.core.i18n` | `message.I18n` / `MessageTranslator`，`source.MugsunMessageSource` / `MessageBundles` / `MessageProvider`，`locale.LocaleNegotiator`，`web.TranslateResponseAdvice` / `AcceptLanguageLocaleResolver`，`config.MugsunI18nAutoConfiguration` |
 | `mugsun-starter-lock` | `com.mugsun.core.lock` | `annotation.DistributedLock`，`template.LockTemplate` / `LockHandle`，`client.LockClient`（`RedisLockClient` / `LocalLockClient`），`exception.LockFailedException`，`config.MugsunLockAutoConfiguration` |
 | `mugsun-starter-mybatis` | `com.mugsun.core.mybatis` | `base.BaseEntity`，`web.DuplicateKeyExceptionHandler`，`config.MugsunMybatisWebAutoConfiguration` |
 | `mugsun-starter-web` | `com.mugsun.core.web` | `handler.GlobalExceptionHandler`，`crypto.*`，`excel.ExcelUtil`，`jackson.SafeNumberModule`，`config.MugsunWebAutoConfiguration` |
@@ -52,6 +53,18 @@ mugsun 的基础库：BOM 加若干 starter，发布到 Maven Central（版本�
 - 释放和续期必须比对持有者令牌（Redis 里用脚本一次做完），不能改成直接删键。
 - `RedisLockClientTest` 用 Testcontainers 起真的 Redis，没有 Docker 的机器自动跳过；改了 Redis 命令或脚本要在有 Docker 的机器上跑过它。
 
+## 多语言
+
+`mugsun-starter-i18n`：返回前把 `R.msg` 翻译成请求的语言（`TranslateResponseAdvice`），代码里取文案用 `I18n.get`，语言由 `LocaleNegotiator` 按请求头 `Accept-Language` 定。
+
+- 零配置：类路径 `i18n/*.properties` 自动读（文件名 `名字_语言.properties`，键是中文原文，一行里第一个等号左边整个是键），类路径根目录的 `messages*.properties` 也读。支持的语言 = 默认语言 + 简体中文 + 有翻译文件的语言；`mugsun.i18n.supported-locales` 写了就只认默认语言和写的那几种。
+- 找文案从具体到笼统（`zh_TW` → `zh` → 不带语言的兜底文案），不回退到服务器操作系统的语言；找不到原样返回，不报错。改这些默认行为属于破坏性变更。
+- 各模块返回给用户的提示语（`ResultCode`、抛给前端的 `ServiceException`）新增或改字时，同步改 `mugsun-starter-i18n/src/main/resources/i18n/mugsun-core_en.properties`，键要和代码里的中文一字不差。`BuiltInTranslationsTest` 只查得出 `ResultCode` 漏翻译，别的靠自己核对。
+- 只有 `web` 包和 `MugsunI18nAutoConfiguration.ServletI18nConfiguration` 可以引用 Servlet、Spring MVC、spring-web 的类：网关和定时任务也要能引入这个模块，`MugsunI18nAutoConfigurationTest` 里有一条测试把关。
+- `TranslateResponseAdvice` 只动 `msg` 不动 `data`；换提示语时复制一份 `R`，不改原对象（原对象可能是共用的常量）。顺序 `TranslateResponseAdvice.ORDER`（`HIGHEST_PRECEDENCE + 1000`）排在响应加密前面。
+- `messageSource` 在容器启动的很早阶段创建，`MessageProvider` 要等第一次查文案才去容器里找（`LazyProviders`），不要改成创建时注入，否则会把数据库连接过早拉起来。
+- 查文案的路上出错（`MessageProvider` 报错或建不起来、应用自己的 `messageSource` 报错）不能让请求失败：改用翻译文件里的文案或原文，同时记一条 WARN（同一类错一分钟最多一条）。这些地方不要改成不记日志的空 `catch`；`MessageProvider` 建不起来时一分钟后才重试，不要改成每次查文案都重试。
+
 ## 组件速查
 
 | 需求 | 类 |
@@ -63,6 +76,7 @@ mugsun 的基础库：BOM 加若干 starter，发布到 Maven Central（版本�
 | Excel | `com.mugsun.core.web.excel.ExcelUtil` |
 | 加解密注解 | `com.mugsun.core.web.crypto.ApiEncrypt` / `ApiDecrypt` |
 | 分布式锁 | `com.mugsun.core.lock.annotation.DistributedLock` / `com.mugsun.core.lock.template.LockTemplate` |
+| 多语言取文案 | `com.mugsun.core.i18n.message.I18n` |
 
 ## 测试与构建
 

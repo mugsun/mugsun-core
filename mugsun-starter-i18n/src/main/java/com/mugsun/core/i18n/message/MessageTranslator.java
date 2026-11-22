@@ -1,5 +1,6 @@
 package com.mugsun.core.i18n.message;
 
+import com.mugsun.core.i18n.locale.LocaleNegotiator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
@@ -22,6 +23,9 @@ import java.util.Locale;
  * </ul>
  *
  * <p>两类方法都不会因为查文案这一步出错而抛异常（比如应用自己的文案来源连不上数据库）：按原文返回，日志里提醒，业务照常进行。
+ *
+ * <p>不带语言的方法用「当前语言」（{@link #locale()}）。拿不到当前语言的地方（比如网关这类不是 Spring MVC 的应用），
+ * 先用 {@link #negotiate(String)} 按请求头把语言定下来，再调带语言的方法。
  */
 public class MessageTranslator {
 
@@ -34,23 +38,44 @@ public class MessageTranslator {
 	private static final long LOOKUP_WARN_INTERVAL_MS = 60_000L;
 
 	private final MessageSource messageSource;
+	private final LocaleNegotiator negotiator;
 	private final Locale defaultLocale;
 	private volatile long lastLookupWarnAt;
 
 	/**
+	 * 只支持默认语言一种：{@link #negotiate(String)} 总是给默认语言。还支持别的语言时用另一个构造方法。
+	 *
 	 * @param messageSource 文案从哪里查
 	 * @param defaultLocale 默认语言：不在请求里（定时任务、启动过程）时用它
 	 */
 	public MessageTranslator(MessageSource messageSource, Locale defaultLocale) {
-		if (messageSource == null || defaultLocale == null) {
+		this(messageSource, defaultLocale == null ? null : new LocaleNegotiator(defaultLocale, null));
+	}
+
+	/**
+	 * @param messageSource 文案从哪里查
+	 * @param negotiator 支持哪些语言、默认语言是哪个；按请求头定语言时问它
+	 */
+	public MessageTranslator(MessageSource messageSource, LocaleNegotiator negotiator) {
+		if (messageSource == null || negotiator == null) {
 			throw new IllegalArgumentException("文案来源和默认语言都不能为空");
 		}
 		this.messageSource = messageSource;
-		this.defaultLocale = defaultLocale;
+		this.negotiator = negotiator;
+		this.defaultLocale = negotiator.getDefaultLocale();
 	}
 
 	public Locale getDefaultLocale() {
 		return defaultLocale;
+	}
+
+	/**
+	 * 按请求头 {@code Accept-Language} 的值定语言，结果一定是支持的语言之一。
+	 *
+	 * @param acceptLanguage 请求头的原文；没带传 null，给默认语言
+	 */
+	public Locale negotiate(String acceptLanguage) {
+		return negotiator.negotiate(acceptLanguage);
 	}
 
 	/** 当前语言：在请求里是这次请求的语言，不在请求里是默认语言 */
@@ -94,11 +119,11 @@ public class MessageTranslator {
 
 	/** 把一句提示语翻译成当前语言；规则见类说明 */
 	public String translate(String text) {
-		return translate(text, locale());
+		return translate(locale(), text);
 	}
 
-	/** 把一句提示语翻译成指定的语言；查不到翻译原样返回 */
-	public String translate(String text, Locale locale) {
+	/** 把一句提示语翻译成指定的语言（语言传 null 用默认语言）；查不到翻译原样返回 */
+	public String translate(Locale locale, String text) {
 		if (text == null || text.isEmpty() || text.length() > MAX_KEY_LENGTH) {
 			return text;
 		}

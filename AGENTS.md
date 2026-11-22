@@ -10,7 +10,7 @@ mugsun 的基础库：BOM 加若干 starter，发布到 Maven Central（版本�
 | --- | --- | --- |
 | `mugsun-bom` | — | 依赖版本（MyBatis-Flex、Sa-Token 等），只有 `pom.xml` |
 | `mugsun-core-tool` | `com.mugsun.core.tool` | `api.R` / `api.ResultCode`，`exception.ServiceException` / `ForbiddenException`，`tree.TreeUtil` / `INode` |
-| `mugsun-starter-i18n` | `com.mugsun.core.i18n` | `message.I18n` / `MessageTranslator`，`source.MugsunMessageSource` / `MessageBundles` / `MessageProvider`，`locale.LocaleNegotiator`，`web.TranslateResponseAdvice` / `AcceptLanguageLocaleResolver`，`config.MugsunI18nAutoConfiguration` |
+| `mugsun-starter-i18n` | `com.mugsun.core.i18n` | `message.I18n` / `MessageTranslator`，`source.MugsunMessageSource` / `MessageBundles` / `MessageProvider`，`locale.LocaleNegotiator`，`web.TranslateResponseAdvice` / `AcceptLanguageLocaleResolver` / `LocaleContextFilter`，`config.MugsunI18nAutoConfiguration` |
 | `mugsun-starter-lock` | `com.mugsun.core.lock` | `annotation.DistributedLock`，`template.LockTemplate` / `LockHandle`，`client.LockClient`（`RedisLockClient` / `LocalLockClient`），`exception.LockFailedException`，`config.MugsunLockAutoConfiguration` |
 | `mugsun-starter-mybatis` | `com.mugsun.core.mybatis` | `base.BaseEntity`，`web.DuplicateKeyExceptionHandler`，`config.MugsunMybatisWebAutoConfiguration` |
 | `mugsun-starter-web` | `com.mugsun.core.web` | `handler.GlobalExceptionHandler`，`crypto.*`，`excel.ExcelUtil`，`jackson.SafeNumberModule`，`config.MugsunWebAutoConfiguration` |
@@ -62,6 +62,7 @@ mugsun 的基础库：BOM 加若干 starter，发布到 Maven Central（版本�
 - 各模块返回给用户的提示语（`ResultCode`、抛给前端的 `ServiceException`）新增或改字时，同步改 `mugsun-starter-i18n/src/main/resources/i18n/mugsun-core_en.properties`，键要和代码里的中文一字不差。`BuiltInTranslationsTest` 只查得出 `ResultCode` 漏翻译，别的靠自己核对。
 - 只有 `web` 包和 `MugsunI18nAutoConfiguration.ServletI18nConfiguration` 可以引用 Servlet、Spring MVC、spring-web 的类：网关和定时任务也要能引入这个模块，`MugsunI18nAutoConfigurationTest` 里有一条测试把关。
 - `TranslateResponseAdvice` 只动 `msg` 不动 `data`；换提示语时复制一份 `R`，不改原对象（原对象可能是共用的常量）。顺序 `TranslateResponseAdvice.ORDER`（`HIGHEST_PRECEDENCE + 1000`）排在响应加密前面。
+- 过滤器里的语言由 `LocaleContextFilter`（顺序 `HIGHEST_PRECEDENCE + 5`）管：用名为 `localeResolver` 的 Bean 定语言、放成当前语言，并把请求包一层让 `request.getLocale()` 返回它。它必须排在 Spring Boot 的 `RequestContextFilter`（顺序 -105）前面，包请求那一步也不能去掉：`RequestContextFilter` 会按 `request.getLocale()` 重设当前语言。`localeResolver` 到第一次请求时才取，不要改成创建时注入。请求处理完往回走时，排在 `RequestContextFilter` 前面的过滤器取到的是默认语言，那里要用 `I18n.negotiate(请求头)` 自己定。
 - `messageSource` 在容器启动的很早阶段创建，`MessageProvider` 要等第一次查文案才去容器里找（`LazyProviders`），不要改成创建时注入，否则会把数据库连接过早拉起来。
 - 查文案的路上出错（`MessageProvider` 报错或建不起来、应用自己的 `messageSource` 报错）不能让请求失败：改用翻译文件里的文案或原文，同时记一条 WARN（同一类错一分钟最多一条）。这些地方不要改成不记日志的空 `catch`；`MessageProvider` 建不起来时一分钟后才重试，不要改成每次查文案都重试。
 

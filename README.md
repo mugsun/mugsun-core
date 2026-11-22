@@ -311,6 +311,7 @@ private String name;
 - 不想拿中文原文做键，可以用码：`ServiceException("{order.closed}")`、`@NotBlank(message = "{user.name.required}")`、`I18n.get("order.created", orderNo)`。这时中文写在 `i18n/messages.properties` 里。
 - 带 `{0}` 的译文里，单引号要写两个（`It''s {0}`）。数字会按语言加千分位，单号这类不想加的传字符串。
 - 语言跟着处理请求的线程走。`@Async`、线程池和定时任务里取到的是默认语言，需要别的语言时用 `I18n.get(locale, ...)`。
+- 过滤器里自己写响应的地方（限流、登录校验这类）不经过统一响应 `R`，要自己翻译：`I18n.translate("请求过于频繁")`。过滤器里取到的语言和控制器里一样。
 - 按 Spring Boot 的习惯放在类路径根目录的 `messages*.properties` 也照样读。
 
 文案放在数据库里时，实现 `MessageProvider` 并注册成 Bean。查文案时先问它，它返回 `null` 再查翻译文件：
@@ -342,6 +343,13 @@ public class DbMessageProvider implements MessageProvider {
 简体中文总是支持的，因为代码里的提示语本来就是简体中文。只想返回英文一种语言时，把 `mugsun.i18n.default-locale` 和 `mugsun.i18n.supported-locales` 都写成 `en`。
 
 想按别的办法定语言（比如按登录用户的设置），自己注册一个名为 `localeResolver` 的 Bean，Starter 的那个就不再生效。
+
+网关这类不是 Spring MVC 的应用（比如 Spring Cloud Gateway）也可以引入。翻译文件照样读，只是不会自动定语言，也不会自动翻译响应。先按请求头把语言定下来，再翻译：
+
+```java
+Locale locale = I18n.negotiate(request.getHeaders().getFirst("Accept-Language"));
+String msg = I18n.translate(locale, "请求未授权");
+```
 
 ## 目前的限制
 

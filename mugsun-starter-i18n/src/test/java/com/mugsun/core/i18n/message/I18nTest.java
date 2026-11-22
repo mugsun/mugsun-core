@@ -32,7 +32,10 @@ class I18nTest {
 		assertThat(I18n.get("user.not.found")).isEqualTo("user.not.found");
 		assertThat(I18n.get(Locale.ENGLISH, "用户 {0} 不存在", "tom")).isEqualTo("用户 tom 不存在");
 		assertThat(I18n.translate("用户不存在")).isEqualTo("用户不存在");
+		assertThat(I18n.translate(Locale.ENGLISH, "用户不存在")).isEqualTo("用户不存在");
 		assertThat(I18n.locale()).isEqualTo(Locale.SIMPLIFIED_CHINESE);
+		assertThat(I18n.negotiate("en-US,en;q=0.9")).isEqualTo(Locale.SIMPLIFIED_CHINESE);
+		assertThat(I18n.negotiate(null)).isEqualTo(Locale.SIMPLIFIED_CHINESE);
 	}
 
 	@Test
@@ -43,7 +46,9 @@ class I18nTest {
 		assertThat(I18n.translator()).isSameAs(english);
 		assertThat(I18n.get("greeting")).isEqualTo("来自英文");
 		assertThat(I18n.translate("greeting")).isEqualTo("来自英文");
+		assertThat(I18n.translate(Locale.FRENCH, "greeting")).isEqualTo("greeting");
 		assertThat(I18n.locale()).isEqualTo(Locale.ENGLISH);
+		assertThat(I18n.negotiate("fr-FR,fr;q=0.9")).isEqualTo(Locale.ENGLISH);
 
 		I18n.uninstall(english);
 

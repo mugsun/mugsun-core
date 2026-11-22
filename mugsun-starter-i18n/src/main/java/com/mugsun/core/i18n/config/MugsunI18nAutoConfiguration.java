@@ -7,6 +7,7 @@ import com.mugsun.core.i18n.source.MessageBundles;
 import com.mugsun.core.i18n.source.MessageProvider;
 import com.mugsun.core.i18n.source.MugsunMessageSource;
 import com.mugsun.core.i18n.web.AcceptLanguageLocaleResolver;
+import com.mugsun.core.i18n.web.LocaleContextFilter;
 import com.mugsun.core.i18n.web.TranslateResponseAdvice;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +57,7 @@ import java.util.function.Supplier;
  * <li>请求用哪种语言看请求头 {@code Accept-Language}；没带、或者带的语言不支持，用默认语言（简体中文）。
  * 支持哪些语言不用登记：有翻译文件的语言就支持；简体中文是代码里提示语的原文，不用翻译文件也支持。</li>
  * <li>统一返回体里的提示语在返回前翻译成请求的语言，没有翻译的原样返回。</li>
+ * <li>过滤器里取到的当前语言也是这次请求的语言（见 {@link LocaleContextFilter}）。</li>
  * <li>校验注解里 {@code {码}} 形式的提示语、代码里用 {@link I18n} 取的文案，查的是同一套翻译文件。</li>
  * </ul>
  *
@@ -116,8 +118,8 @@ public class MugsunI18nAutoConfiguration {
 	@ConditionalOnMissingBean
 	public MessageTranslator messageTranslator(
 			@Qualifier(AbstractApplicationContext.MESSAGE_SOURCE_BEAN_NAME) MessageSource messageSource,
-			I18nProperties properties) {
-		return new MessageTranslator(messageSource, properties.getDefaultLocale());
+			LocaleNegotiator negotiator) {
+		return new MessageTranslator(messageSource, negotiator);
 	}
 
 	/** 不跟着「全局延迟创建」走：静态入口 {@link I18n} 要在启动时就接上翻译器，不能等有人来取这个 Bean */
@@ -127,7 +129,7 @@ public class MugsunI18nAutoConfiguration {
 		return new I18nInstaller(translator);
 	}
 
-	/** 只在 Spring MVC 应用里才有的两样：按请求头定语言、翻译返回体里的提示语 */
+	/** 只在 Spring MVC 应用里才有的几样：按请求头定语言、让过滤器里也拿到这个语言、翻译返回体里的提示语 */
 	@Configuration(proxyBeanMethods = false)
 	@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 	@ConditionalOnClass(name = "org.springframework.web.servlet.LocaleResolver")
@@ -138,6 +140,15 @@ public class MugsunI18nAutoConfiguration {
 		@Conditional(LocaleNotFixedCondition.class)
 		LocaleResolver localeResolver(LocaleNegotiator negotiator) {
 			return new AcceptLanguageLocaleResolver(negotiator);
+		}
+
+		/** 语言按名为 localeResolver 的那个 Bean 定（应用自己注册的也算），和控制器里的一致；第一次请求时才去取它 */
+		@Bean
+		@ConditionalOnMissingBean
+		LocaleContextFilter localeContextFilter(
+				@Qualifier("localeResolver") ObjectProvider<LocaleResolver> localeResolver,
+				LocaleNegotiator negotiator) {
+			return new LocaleContextFilter(localeResolver::getIfAvailable, negotiator);
 		}
 
 		@Bean

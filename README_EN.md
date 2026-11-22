@@ -313,6 +313,7 @@ The conventions:
 - If you prefer codes to sentences as keys, use `ServiceException("{order.closed}")`, `@NotBlank(message = "{user.name.required}")` or `I18n.get("order.created", orderNo)`. The Chinese text then goes into `i18n/messages.properties`.
 - In a translation that contains `{0}`, write a single quote twice (`It''s {0}`). Numbers get the grouping separators of the language, so pass order numbers and the like as strings.
 - The language belongs to the thread that handles the request. Code in `@Async` methods, thread pools and scheduled jobs gets the default language. Use `I18n.get(locale, ...)` when it needs another one.
+- A filter that writes its own response, such as a rate limiter or a login check, does not go through the response wrapper `R`, so it translates the message itself: `I18n.translate("请求过于频繁")`. A filter gets the same language as a controller.
 - `messages*.properties` in the classpath root, the Spring Boot convention, is read as well.
 
 If your texts live in a database, implement `MessageProvider` and register it as a bean. It is asked first, and the translation files are used when it returns `null`:
@@ -344,6 +345,13 @@ An error in a `MessageProvider` does not fail the request. That lookup uses the 
 Simplified Chinese always counts as supported because the messages in the code are written in it. For a project that should answer in English only, set both `mugsun.i18n.default-locale` and `mugsun.i18n.supported-locales` to `en`.
 
 To decide the language another way, for example from the signed-in user's settings, register your own bean named `localeResolver` and the starter's one backs off.
+
+An application that is not Spring MVC, such as Spring Cloud Gateway, can use the starter too. The translation files are read as usual, but the language is not decided for you and responses are not translated automatically. Decide the language from the request header first, then translate:
+
+```java
+Locale locale = I18n.negotiate(request.getHeaders().getFirst("Accept-Language"));
+String msg = I18n.translate(locale, "请求未授权");
+```
 
 ## Current limits
 

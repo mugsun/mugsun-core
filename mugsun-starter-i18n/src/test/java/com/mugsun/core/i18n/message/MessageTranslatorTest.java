@@ -1,5 +1,6 @@
 package com.mugsun.core.i18n.message;
 
+import com.mugsun.core.i18n.locale.LocaleNegotiator;
 import com.mugsun.core.i18n.source.MessageBundles;
 import com.mugsun.core.i18n.source.MugsunMessageSource;
 import org.junit.jupiter.api.AfterEach;
@@ -15,6 +16,7 @@ import org.springframework.context.support.StaticMessageSource;
 import org.springframework.util.StringUtils;
 
 import java.text.MessageFormat;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -120,9 +122,9 @@ class MessageTranslatorTest {
 	@DisplayName("翻译整句提示语：拿原文当键查，查不到原样返回")
 	void translateWholeText() {
 		assertThat(translator.translate("用户不存在")).isEqualTo("用户不存在");
-		assertThat(translator.translate("用户不存在", Locale.ENGLISH)).isEqualTo("User not found");
-		assertThat(translator.translate("这句没有翻译", Locale.ENGLISH)).isEqualTo("这句没有翻译");
-		assertThat(translator.translate("用户不存在", null)).isEqualTo("用户不存在");
+		assertThat(translator.translate(Locale.ENGLISH, "用户不存在")).isEqualTo("User not found");
+		assertThat(translator.translate(Locale.ENGLISH, "这句没有翻译")).isEqualTo("这句没有翻译");
+		assertThat(translator.translate(null, "用户不存在")).isEqualTo("用户不存在");
 
 		LocaleContextHolder.setLocale(Locale.ENGLISH);
 
@@ -133,24 +135,24 @@ class MessageTranslatorTest {
 	@DisplayName("整句是 {码} 的写法：按里面的码查，默认语言也查；查不到原样返回")
 	void translateCode() {
 		assertThat(translator.translate("{demo.required}")).isEqualTo("必填");
-		assertThat(translator.translate("{demo.required}", Locale.ENGLISH)).isEqualTo("This field is required");
-		assertThat(translator.translate("{no.such.code}", Locale.ENGLISH)).isEqualTo("{no.such.code}");
+		assertThat(translator.translate(Locale.ENGLISH, "{demo.required}")).isEqualTo("This field is required");
+		assertThat(translator.translate(Locale.ENGLISH, "{no.such.code}")).isEqualTo("{no.such.code}");
 	}
 
 	@Test
 	@DisplayName("花括号里不是码的（JSON、带空格的句子）：当成普通的一句话")
 	void bracesButNotCode() {
 		for (String text : new String[] {"{}", "{\"a\":1}", "{用户}", "{demo required}", "{demo.required} 多一截"}) {
-			assertThat(translator.translate(text, Locale.ENGLISH)).as(text).isEqualTo(text);
+			assertThat(translator.translate(Locale.ENGLISH, text)).as(text).isEqualTo(text);
 		}
 	}
 
 	@Test
 	@DisplayName("空的、太长的提示语不查翻译")
 	void skipsEmptyAndLong() {
-		assertThat(translator.translate(null, Locale.ENGLISH)).isNull();
-		assertThat(translator.translate("", Locale.ENGLISH)).isEmpty();
-		assertThat(translator.translate(LONG_TEXT, Locale.ENGLISH)).isEqualTo(LONG_TEXT);
+		assertThat(translator.translate(Locale.ENGLISH, null)).isNull();
+		assertThat(translator.translate(Locale.ENGLISH, "")).isEmpty();
+		assertThat(translator.translate(Locale.ENGLISH, LONG_TEXT)).isEqualTo(LONG_TEXT);
 		// 写代码时主动去取的不受这个限制
 		assertThat(translator.get(Locale.ENGLISH, LONG_TEXT)).isEqualTo("too long");
 	}
@@ -167,7 +169,7 @@ class MessageTranslatorTest {
 		MessageTranslator broken = new MessageTranslator(failing, ZH_CN);
 
 		for (int i = 0; i < 20; i++) {
-			assertThat(broken.translate("用户不存在", Locale.ENGLISH)).isEqualTo("用户不存在");
+			assertThat(broken.translate(Locale.ENGLISH, "用户不存在")).isEqualTo("用户不存在");
 			assertThat(broken.get(Locale.ENGLISH, "用户不存在")).isEqualTo("用户不存在");
 			assertThat(broken.get(Locale.ENGLISH, "用户 {0} 不存在", "tom")).isEqualTo("用户 tom 不存在");
 		}
@@ -177,10 +179,33 @@ class MessageTranslatorTest {
 	}
 
 	@Test
+	@DisplayName("按请求头定语言：结果一定是支持的语言之一；定出来以后传给带语言的方法，不看当前语言")
+	void negotiate() {
+		MessageTranslator bilingual = new MessageTranslator(
+			new MugsunMessageSource(MessageBundles.of(Map.of(Locale.ENGLISH, Map.of("用户不存在", "User not found")))),
+			new LocaleNegotiator(ZH_CN, List.of(Locale.ENGLISH)));
+
+		assertThat(bilingual.getDefaultLocale()).isEqualTo(ZH_CN);
+		assertThat(bilingual.negotiate("en-US,en;q=0.9,zh-CN;q=0.8")).isEqualTo(Locale.ENGLISH);
+		assertThat(bilingual.negotiate("zh-CN,zh;q=0.9")).isEqualTo(ZH_CN);
+		assertThat(bilingual.negotiate("fr")).isEqualTo(ZH_CN);
+		assertThat(bilingual.negotiate(null)).isEqualTo(ZH_CN);
+
+		LocaleContextHolder.setLocale(Locale.JAPANESE);
+
+		assertThat(bilingual.translate(bilingual.negotiate("en-US"), "用户不存在")).isEqualTo("User not found");
+		assertThat(bilingual.translate(bilingual.negotiate(null), "用户不存在")).isEqualTo("用户不存在");
+		// 只给了默认语言的翻译器：只支持这一种，请求头写什么都给它
+		assertThat(translator.negotiate("en")).isEqualTo(ZH_CN);
+	}
+
+	@Test
 	@DisplayName("文案来源和默认语言都不能为空")
 	void constructorChecks() {
 		assertThatThrownBy(() -> new MessageTranslator(null, ZH_CN)).isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> new MessageTranslator(new StaticMessageSource(), null))
+		assertThatThrownBy(() -> new MessageTranslator(new StaticMessageSource(), (Locale) null))
+			.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> new MessageTranslator(new StaticMessageSource(), (LocaleNegotiator) null))
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 }

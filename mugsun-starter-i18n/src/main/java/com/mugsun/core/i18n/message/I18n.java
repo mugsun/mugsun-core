@@ -21,6 +21,14 @@ import java.util.Locale;
  * <p>不带参数、整句固定的提示语不用改代码：照常 {@code throw new ServiceException("用户不存在")}，
  * 返回前会拿整句原文去查翻译，只要在翻译文件里加一行 {@code 用户不存在=User not found}。
  *
+ * <p>过滤器里自己写响应的地方不经过统一返回体，要自己翻译：{@code I18n.translate("请求体过大")}。
+ * 网关这类不是 Spring MVC 的应用没有「当前语言」，先按请求头把语言定下来再翻译：
+ *
+ * <pre>{@code
+ * Locale locale = I18n.negotiate(headers.getFirst("Accept-Language"));
+ * String msg = I18n.translate(locale, "请求未授权");
+ * }</pre>
+ *
  * <p>没有 Spring 容器时（比如单元测试）也能用：没有翻译可查，返回键本身并把占位填好。
  */
 public final class I18n {
@@ -57,6 +65,21 @@ public final class I18n {
 	/** 把一句已经拼好的提示语翻译成当前语言；查不到翻译原样返回。不经过统一返回体的地方（比如过滤器里自己写响应）用它 */
 	public static String translate(String text) {
 		return translator.translate(text);
+	}
+
+	/** 把一句已经拼好的提示语翻译成指定的语言；查不到翻译原样返回 */
+	public static String translate(Locale locale, String text) {
+		return translator.translate(locale, text);
+	}
+
+	/**
+	 * 按请求头 {@code Accept-Language} 的值定语言，结果一定是支持的语言之一。
+	 * 拿不到当前语言的地方用它，定出来以后传给 {@link #get(Locale, String, Object...)}、{@link #translate(Locale, String)}。
+	 *
+	 * @param acceptLanguage 请求头的原文；没带传 null，给默认语言
+	 */
+	public static Locale negotiate(String acceptLanguage) {
+		return translator.negotiate(acceptLanguage);
 	}
 
 	/** 当前语言：在请求里是这次请求的语言，不在请求里是默认语言 */

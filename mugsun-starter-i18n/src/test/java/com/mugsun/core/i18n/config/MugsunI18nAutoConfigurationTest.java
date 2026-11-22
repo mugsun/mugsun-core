@@ -6,6 +6,7 @@ import com.mugsun.core.i18n.message.MessageTranslator;
 import com.mugsun.core.i18n.source.MessageProvider;
 import com.mugsun.core.i18n.source.MugsunMessageSource;
 import com.mugsun.core.i18n.web.AcceptLanguageLocaleResolver;
+import com.mugsun.core.i18n.web.LocaleContextFilter;
 import com.mugsun.core.i18n.web.TranslateResponseAdvice;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.support.StaticMessageSource;
+import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.LocaleResolver;
@@ -96,6 +98,10 @@ class MugsunI18nAutoConfigurationTest {
 			assertThat(translator.getDefaultLocale()).isEqualTo(ZH_CN);
 			assertThat(I18n.translator()).isSameAs(translator);
 			assertThat(I18n.get(Locale.ENGLISH, "用户不存在")).isEqualTo("User not found");
+			// 拿不到当前语言的地方（比如网关）：按请求头定语言，认的是同一份支持清单
+			assertThat(I18n.negotiate("en-US,en;q=0.9,zh-CN;q=0.8")).isEqualTo(Locale.ENGLISH);
+			assertThat(I18n.negotiate("fr")).isEqualTo(ZH_CN);
+			assertThat(I18n.translate(I18n.negotiate("ja"), "用户不存在")).isEqualTo("ユーザーが存在しません");
 			installed.set(translator);
 		});
 
@@ -105,20 +111,22 @@ class MugsunI18nAutoConfigurationTest {
 	}
 
 	@Test
-	@DisplayName("不是网页应用（定时任务、命令行）：照样能取文案，只是没有按请求头定语言、翻译返回体这两样")
+	@DisplayName("不是网页应用（定时任务、命令行）：照样能取文案，只是没有跟请求有关的那几样")
 	void nonWeb() {
 		runner.run(context -> {
 			assertThat(context).hasSingleBean(MessageTranslator.class).hasSingleBean(LocaleNegotiator.class);
-			assertThat(context).doesNotHaveBean("localeResolver").doesNotHaveBean(TranslateResponseAdvice.class);
+			assertThat(context).doesNotHaveBean("localeResolver").doesNotHaveBean(TranslateResponseAdvice.class)
+				.doesNotHaveBean(LocaleContextFilter.class);
 		});
 	}
 
 	@Test
-	@DisplayName("是 Servlet 应用但没有 Spring MVC：照样启动，取文案能用，只是没有那两样")
+	@DisplayName("是 Servlet 应用但没有 Spring MVC：照样启动，取文案能用，只是没有那几样")
 	void servletWithoutSpringMvc() {
 		webRunner.withClassLoader(new FilteredClassLoader("org.springframework.web.servlet")).run(context -> {
 			assertThat(context).hasNotFailed();
-			assertThat(context).doesNotHaveBean("localeResolver").doesNotHaveBean(TranslateResponseAdvice.class);
+			assertThat(context).doesNotHaveBean("localeResolver").doesNotHaveBean(TranslateResponseAdvice.class)
+				.doesNotHaveBean("localeContextFilter");
 			assertThat(context.getBean(MessageTranslator.class).get(Locale.ENGLISH, "用户不存在"))
 				.isEqualTo("User not found");
 		});
@@ -157,12 +165,27 @@ class MugsunI18nAutoConfigurationTest {
 	}
 
 	@Test
-	@DisplayName("Spring MVC 应用：按请求头定语言的就是这里注册的那个，Spring Boot 自带的让开")
+	@DisplayName("Spring MVC 应用：按请求头定语言的就是这里注册的那个，Spring Boot 自带的让开；过滤器排在前头")
 	void webApp() {
 		webRunner.run(context -> {
 			assertThat(context).hasNotFailed();
-			assertThat(context).hasSingleBean(LocaleResolver.class).hasSingleBean(TranslateResponseAdvice.class);
+			assertThat(context).hasSingleBean(LocaleResolver.class).hasSingleBean(TranslateResponseAdvice.class)
+				.hasSingleBean(LocaleContextFilter.class);
 			assertThat(context.getBean("localeResolver")).isInstanceOf(AcceptLanguageLocaleResolver.class);
+			// 要排在 Spring Boot 的 RequestContextFilter（顺序 -105）前面：它会把当前语言设成请求自己说的语言
+			assertThat(context.getBean(LocaleContextFilter.class).getOrder()).isEqualTo(Ordered.HIGHEST_PRECEDENCE + 5)
+				.isLessThan(-105);
+		});
+	}
+
+	@Test
+	@DisplayName("应用自己注册了 LocaleContextFilter：用应用的，这里的让开")
+	void customLocaleContextFilter() {
+		LocaleContextFilter custom = new LocaleContextFilter(() -> null, new LocaleNegotiator(Locale.ENGLISH, null));
+
+		webRunner.withBean("myLocaleFilter", LocaleContextFilter.class, () -> custom).run(context -> {
+			assertThat(context).hasSingleBean(LocaleContextFilter.class);
+			assertThat(context.getBean(LocaleContextFilter.class)).isSameAs(custom);
 		});
 	}
 
@@ -173,7 +196,7 @@ class MugsunI18nAutoConfigurationTest {
 			assertThat(context).hasNotFailed();
 			assertThat(context).doesNotHaveBean(MugsunMessageSource.class).doesNotHaveBean(MessageTranslator.class)
 				.doesNotHaveBean(LocaleNegotiator.class).doesNotHaveBean(TranslateResponseAdvice.class)
-				.doesNotHaveBean(I18nProperties.class);
+				.doesNotHaveBean(LocaleContextFilter.class).doesNotHaveBean(I18nProperties.class);
 			assertThat(context.getBean("localeResolver")).isNotInstanceOf(AcceptLanguageLocaleResolver.class);
 			assertThat(I18n.get(Locale.ENGLISH, "用户不存在")).isEqualTo("用户不存在");
 		});
@@ -183,7 +206,7 @@ class MugsunI18nAutoConfigurationTest {
 	@DisplayName("mugsun.i18n.translate-response=false：不翻译返回体，语言照样按请求头定")
 	void translateResponseOff() {
 		webRunner.withPropertyValues("mugsun.i18n.translate-response=false").run(context -> {
-			assertThat(context).doesNotHaveBean(TranslateResponseAdvice.class);
+			assertThat(context).doesNotHaveBean(TranslateResponseAdvice.class).hasSingleBean(LocaleContextFilter.class);
 			assertThat(context.getBean("localeResolver")).isInstanceOf(AcceptLanguageLocaleResolver.class);
 		});
 	}

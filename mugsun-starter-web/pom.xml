@@ -7,7 +7,7 @@
 	<parent>
 		<groupId>com.mugsun</groupId>
 		<artifactId>mugsun-core</artifactId>
-		<version>0.2.0-SNAPSHOT</version>
+		<version>0.3.0-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>mugsun-starter-web</artifactId>
@@ -22,11 +22,18 @@
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-web</artifactId>
+			<artifactId>spring-boot-starter-webmvc</artifactId>
+		</dependency>
+		<!-- 过渡期：JSON 仍用 Jackson 2（com.fasterxml.jackson）。Spring Boot 4 默认是 Jackson 3，这个模块提供 Jackson 2 的
+		     ObjectMapper 自动装配；让接口用它读写 JSON 的默认值见 Jackson2PreferenceEnvironmentPostProcessor。
+		     换到 Jackson 3 以后两处一起去掉 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-jackson2</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>cn.dev33</groupId>
-			<artifactId>sa-token-spring-boot3-starter</artifactId>
+			<artifactId>sa-token-spring-boot4-starter</artifactId>
 			<version>${sa-token.version}</version>
 		</dependency>
 		<dependency>

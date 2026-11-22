@@ -12,7 +12,7 @@ mugsun 后端的公共库，由一个 BOM、一个工具包和两个 Spring Boot
 
 ## 安装
 
-主干版本是 `0.2.0-SNAPSHOT`，还没有发布到 Maven Central，要先装到本地仓库。需要 JDK 21 和 Maven 3.9+。
+主干版本是 `0.3.0-SNAPSHOT`（基于 Spring Boot 4），还没有发布到 Maven Central，要先装到本地仓库。需要 JDK 21 和 Maven 3.9+。
 
 ```bash
 git clone https://github.com/mugsun/mugsun-core.git && cd mugsun-core
@@ -27,7 +27,7 @@ mvn -B clean install -DskipTests
     <dependency>
       <groupId>com.mugsun</groupId>
       <artifactId>mugsun-bom</artifactId>
-      <version>0.2.0-SNAPSHOT</version>
+      <version>0.3.0-SNAPSHOT</version>
       <type>pom</type>
       <scope>import</scope>
     </dependency>
@@ -198,8 +198,9 @@ public R<LoginVO> login(@RequestBody LoginDTO dto) {
 
 ## 目前的限制
 
-- `0.2.0-SNAPSHOT` 没有发布到 Maven Central，只能本地安装。
-- 需要 Spring Boot 3 和 JDK 21，不支持更早的版本。
+- `0.3.0-SNAPSHOT` 没有发布到 Maven Central，只能本地安装。
+- 需要 Spring Boot 4 和 JDK 21。还在用 Spring Boot 3 的工程用 `0.2.x`（分支 `release/0.2.0`）。
+- JSON 暂时还用 Jackson 2：Spring Boot 4 默认是 Jackson 3，`mugsun-starter-web` 把接口读写 JSON 的默认库设回了 Jackson 2，自定义序列化器仍按 `com.fasterxml.jackson` 写。应用把 `spring.http.converters.preferred-json-mapper` 设成 `jackson` 会换回 Jackson 3，但 Long 转字符串等按 Jackson 2 写的功能不会跟着生效。
 - 只支持 Spring MVC，不支持 WebFlux。
 
 ## 相关仓库

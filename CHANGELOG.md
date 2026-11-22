@@ -8,6 +8,26 @@
 
 ### 不兼容变更
 
+- 升级到 Spring Boot 4.1.3，开发版本改为 `0.3.0-SNAPSHOT`
+  - `0.2.x` 仍基于 Spring Boot 3.5，在分支 `release/0.2.0`
+  - 随 Boot 升级：Spring Framework 7、Spring Security 7.1、Servlet 6.1
+  - BOM 里的构件换成各库的 Boot 4 版，工程里直接写构件名的要跟着改：
+  - `sa-token-spring-boot3-starter` → `sa-token-spring-boot4-starter`
+  - `warm-flow-mybatis-sb3-starter` → `warm-flow-mybatis-sb4-starter`
+  - `liteflow-spring-boot-starter` → `liteflow-spring-boot4-starter`
+  - 新增 `mybatis-flex-spring-boot4-starter`，`mugsun-starter-mybatis` 改引它
+  - `mugsun-starter-web` 改引 `spring-boot-starter-webmvc`
+  - 版本：Sa-Token 1.46.0、warm-flow 1.8.9、LiteFlow 2.16.3、PowerJob 5.1.7
+  - 版本：springdoc 3.1.1（2.x 只支持 Boot 3）、mybatis-spring 4.0.0
+  - JSON 暂时仍用 Jackson 2：`mugsun-starter-web` 引 `spring-boot-jackson2`
+  - 新增 `Jackson2PreferenceEnvironmentPostProcessor`，给三个配置项设默认值
+  - `spring.http.converters.preferred-json-mapper=jackson2`
+  - `spring.http.codecs.preferred-json-mapper=jackson2`
+  - `spring.websocket.messaging.preferred-json-mapper=jackson2`
+  - 默认值排在所有配置来源最后，应用写了同名配置项以应用的为准
+  - 不设的话接口不报错，但 Long 不再转字符串，前端的大整数会丢精度
+  - 全部换到 Jackson 3 是下一步，到时去掉这个类和 `spring-boot-jackson2`
+
 - 开发版本改为 `0.2.0-SNAPSHOT`；mugsun-boot 依赖这个版本
 
 - 接口加密去掉内置密钥，改为 SM4-GCM；不配也能启动，`MUGSUN_API_KEY` 可选覆盖

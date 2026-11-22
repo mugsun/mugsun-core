@@ -6,12 +6,12 @@ import com.mugsun.core.web.handler.ErrorLogListener;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
-import org.springframework.boot.autoconfigure.http.HttpMessageConvertersAutoConfiguration;
-import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
-import org.springframework.boot.autoconfigure.web.servlet.DispatcherServletAutoConfiguration;
-import org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration;
+import org.springframework.boot.http.converter.autoconfigure.HttpMessageConvertersAutoConfiguration;
+import org.springframework.boot.jackson2.autoconfigure.Jackson2AutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.boot.webmvc.autoconfigure.DispatcherServletAutoConfiguration;
+import org.springframework.boot.webmvc.autoconfigure.WebMvcAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -42,7 +42,7 @@ class DuplicateKeyPrecedenceTest {
 
 	private final WebApplicationContextRunner runner = new WebApplicationContextRunner()
 		.withConfiguration(AutoConfigurations.of(DispatcherServletAutoConfiguration.class, WebMvcAutoConfiguration.class,
-			HttpMessageConvertersAutoConfiguration.class, JacksonAutoConfiguration.class,
+			HttpMessageConvertersAutoConfiguration.class, Jackson2AutoConfiguration.class,
 			MugsunWebAutoConfiguration.class, MugsunMybatisWebAutoConfiguration.class))
 		// 本测试与接口加密无关；没配 api-key 时会自动生成密钥文件，mugsun.home 指到临时目录，不碰 ~/.mugsun
 		.withPropertyValues(EPHEMERAL_KEYS)
@@ -127,7 +127,7 @@ class DuplicateKeyPrecedenceTest {
 		new WebApplicationContextRunner()
 			.withUserConfiguration(UserGlobalHandlerConfig.class, TestConfig.class)
 			.withConfiguration(AutoConfigurations.of(DispatcherServletAutoConfiguration.class, WebMvcAutoConfiguration.class,
-				HttpMessageConvertersAutoConfiguration.class, JacksonAutoConfiguration.class,
+				HttpMessageConvertersAutoConfiguration.class, Jackson2AutoConfiguration.class,
 				MugsunWebAutoConfiguration.class, MugsunMybatisWebAutoConfiguration.class))
 			.withPropertyValues(EPHEMERAL_KEYS)
 			.run(context -> {

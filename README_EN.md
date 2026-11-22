@@ -12,7 +12,7 @@ Add it and your endpoints get one response format, global exception handling and
 
 ## Install
 
-The main branch is at `0.2.0-SNAPSHOT`, which is not on Maven Central yet, so install it into your local repository first. You need JDK 21 and Maven 3.9+.
+The main branch is at `0.3.0-SNAPSHOT` (built on Spring Boot 4), which is not on Maven Central yet, so install it into your local repository first. You need JDK 21 and Maven 3.9+.
 
 ```bash
 git clone https://github.com/mugsun/mugsun-core.git && cd mugsun-core
@@ -27,7 +27,7 @@ Then import the BOM in your own project and declare the starters you use:
     <dependency>
       <groupId>com.mugsun</groupId>
       <artifactId>mugsun-bom</artifactId>
-      <version>0.2.0-SNAPSHOT</version>
+      <version>0.3.0-SNAPSHOT</version>
       <type>pom</type>
       <scope>import</scope>
     </dependency>
@@ -198,8 +198,9 @@ More details are in the [configuration reference](https://docs.mugsun.com/en/boo
 
 ## Current limits
 
-- `0.2.0-SNAPSHOT` is not on Maven Central. You have to install it locally.
-- It needs Spring Boot 3 and JDK 21. Earlier versions are not supported.
+- `0.3.0-SNAPSHOT` is not on Maven Central. You have to install it locally.
+- It needs Spring Boot 4 and JDK 21. Projects still on Spring Boot 3 should use `0.2.x` (branch `release/0.2.0`).
+- JSON still goes through Jackson 2 for now. Spring Boot 4 defaults to Jackson 3, so `mugsun-starter-web` sets the default JSON library for reading and writing request and response bodies back to Jackson 2, and custom serializers are still written against `com.fasterxml.jackson`. Setting `spring.http.converters.preferred-json-mapper` to `jackson` in your application switches back to Jackson 3, but features written against Jackson 2, such as writing large `Long` values as strings, will not apply.
 - It supports Spring MVC only, not WebFlux.
 
 ## Related repositories

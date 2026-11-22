@@ -7,7 +7,7 @@
 	<parent>
 		<groupId>com.mugsun</groupId>
 		<artifactId>mugsun-core</artifactId>
-		<version>0.2.0-SNAPSHOT</version>
+		<version>0.3.0-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>mugsun-bom</artifactId>
@@ -33,7 +33,12 @@
 				<artifactId>mugsun-starter-mybatis</artifactId>
 				<version>${mugsun.version}</version>
 			</dependency>
-			<!-- 持久层：MyBatis-Flex（须覆盖其传递的旧版 mybatis-spring） -->
+			<!-- 持久层：MyBatis-Flex。Spring Boot 4 用 boot4 这个包，它自己会带上下面的 mybatis-flex-spring-boot-starter，两个版本一起管 -->
+			<dependency>
+				<groupId>com.mybatis-flex</groupId>
+				<artifactId>mybatis-flex-spring-boot4-starter</artifactId>
+				<version>${mybatis-flex.version}</version>
+			</dependency>
 			<dependency>
 				<groupId>com.mybatis-flex</groupId>
 				<artifactId>mybatis-flex-spring-boot-starter</artifactId>
@@ -45,7 +50,7 @@
 				<artifactId>mybatis-flex-codegen</artifactId>
 				<version>${mybatis-flex.version}</version>
 			</dependency>
-			<!-- 显式锁定 mybatis 版本，避免工作流 starter 传递的旧版覆盖（NoSuchMethodError） -->
+			<!-- 显式锁定 mybatis 和 mybatis-spring 的版本，避免工作流 starter 传递的旧版覆盖（NoSuchMethodError） -->
 			<dependency>
 				<groupId>org.mybatis</groupId>
 				<artifactId>mybatis</artifactId>
@@ -59,7 +64,7 @@
 			<!-- 认证鉴权：Sa-Token -->
 			<dependency>
 				<groupId>cn.dev33</groupId>
-				<artifactId>sa-token-spring-boot3-starter</artifactId>
+				<artifactId>sa-token-spring-boot4-starter</artifactId>
 				<version>${sa-token.version}</version>
 			</dependency>
 			<!-- 会话持久化：Sa-Token Redis（Jackson JSON 序列化，复用 spring-data-redis 连接工厂） -->
@@ -113,7 +118,7 @@
 			<!-- 工作流：Warm-Flow（MyBatis 适配 + 表达式模式） -->
 			<dependency>
 				<groupId>org.dromara.warm</groupId>
-				<artifactId>warm-flow-mybatis-sb3-starter</artifactId>
+				<artifactId>warm-flow-mybatis-sb4-starter</artifactId>
 				<version>${warm-flow.version}</version>
 			</dependency>
 			<dependency>
@@ -135,7 +140,7 @@
 			<!-- 规则编排：LiteFlow -->
 			<dependency>
 				<groupId>com.yomahub</groupId>
-				<artifactId>liteflow-spring-boot-starter</artifactId>
+				<artifactId>liteflow-spring-boot4-starter</artifactId>
 				<version>${liteflow.version}</version>
 			</dependency>
 			<!-- Excel：FastExcel（EasyExcel 维护分支，导入导出） -->

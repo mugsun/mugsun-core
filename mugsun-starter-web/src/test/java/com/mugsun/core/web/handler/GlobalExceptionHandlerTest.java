@@ -122,7 +122,7 @@ class GlobalExceptionHandlerTest {
 	@DisplayName("静态资源未命中 → 404，且不写错误日志（防扫描器刷日志）")
 	void noResourceFound() {
 		ResponseEntity<R<Void>> resp = handler.handleNoResource(
-			new NoResourceFoundException(org.springframework.http.HttpMethod.GET, "/.env"));
+			new NoResourceFoundException(org.springframework.http.HttpMethod.GET, "/.env", ".env"));
 
 		assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
 		assertThat(captured).isEmpty();

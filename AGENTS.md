@@ -4,7 +4,7 @@
 
 ## 仓库是什么
 
-mugsun 的基础库：BOM 加若干 starter，发布到 Maven Central（版本见根 `pom.xml`）。当前开发版 `0.2.0-SNAPSHOT` 不在 Central，mugsun-boot 依赖它，要先在本仓 `mvn -B install` 装到本地。**业务代码不放这里**，放在 mugsun-boot。
+mugsun 的基础库：BOM 加若干 starter，发布到 Maven Central（版本见根 `pom.xml`）。当前开发版 `0.3.0-SNAPSHOT`（基于 Spring Boot 4；`0.2.x` 是 Spring Boot 3.5，在分支 `release/0.2.0`）不在 Central，mugsun-boot 依赖它，要先在本仓 `mvn -B install` 装到本地。**业务代码不放这里**，放在 mugsun-boot。
 
 | 模块 | 包 | 内容 |
 | --- | --- | --- |
